@@ -1,0 +1,25 @@
+﻿# Dependencies (akan di-install ulang di Docker)
+node_modules/
+
+# Hasil build lokal
+dist/
+out/
+
+# Env files (inject via docker-compose atau --env-file)
+.env
+.env.*
+
+# Git
+.git/
+.gitignore
+
+# Cache & logs
+.cache/
+*.log
+coverage/
+*.lcov
+*.tsbuildinfo
+
+# IDE
+.idea/
+.DS_Store

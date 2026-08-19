@@ -104,7 +104,7 @@ export default function Transactions() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Filter Section */}
         <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-4 items-center">
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-50">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-gray-400" />
             </div>

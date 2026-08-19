@@ -6,7 +6,7 @@ import Transactions from './pages/Transactions'
 import Login from './pages/Login'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
-import { Session } from '@supabase/supabase-js'
+import type { Session } from '@supabase/supabase-js'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
