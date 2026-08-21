@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿﻿import { useState, useEffect } from 'react'
 import { tenantsApi, propertiesApi, transactionsApi, storageApi } from '../lib/api'
 import {
   Users,
@@ -109,7 +109,7 @@ export default function Tenants() {
       await tenantsApi.update(targetTenantDoc.id, updatePayload)
       setIsDocModalOpen(false)
       fetchData()
-      alert('✅ Dokumen penghuni berhasil diperbarui!')
+      alert('ԣ� Dokumen penghuni berhasil diperbarui!')
     } catch (error: any) {
       console.error('Error uploading doc:', error)
       alert(error.message || 'Gagal mengupload dokumen.')
@@ -371,7 +371,7 @@ export default function Tenants() {
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">{selectedTenant.full_name}</h3>
                     <p className="text-xs text-blue-600 font-semibold mt-0.5">
-                      {selectedTenant.properties?.unit_name} — Tarif: Rp{' '}
+                      {selectedTenant.properties?.unit_name}  -  Tarif: Rp{' '}
                       {Number(selectedTenant.properties?.price || 0).toLocaleString('id-ID')}/bulan
                     </p>
                   </div>
@@ -486,18 +486,16 @@ export default function Tenants() {
                 <div className="border-t border-gray-200 pt-4">
                   <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
                     <History className="w-4 h-4 mr-1.5 text-blue-600" />
-                    Riwayat Pembayaran Sewa ({tenantTransactions.length})
+                    Riwayat Pembayaran Sewa ({selectedTenantTrx.length})
                   </h4>
 
-                  {isLoadingHistory ? (
-                    <p className="text-xs text-gray-500 text-center py-4">Memuat riwayat transaksi...</p>
-                  ) : tenantTransactions.length === 0 ? (
+                  {selectedTenantTrx.length === 0 ? (
                     <div className="text-center py-6 text-gray-400 bg-gray-50 rounded border border-dashed text-xs">
                       Belum ada transaksi tercatat untuk penghuni ini.
                     </div>
                   ) : (
                     <div className="max-h-56 overflow-y-auto space-y-2">
-                      {tenantTransactions.map((trx) => (
+                      {selectedTenantTrx.map((trx) => (
                         <div
                           key={trx.id}
                           className="p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 flex justify-between items-center transition-colors text-xs"
@@ -551,7 +549,7 @@ export default function Tenants() {
           <div className="flex items-center justify-center min-h-screen p-4">
             <div
               className="fixed inset-0 bg-black/60 transition-opacity"
-              onClick={() => !isSubmitting && setIsDocModalOpen(false)}
+              onClick={() => !isSubmittingDoc && setIsDocModalOpen(false)}
             ></div>
             <div className="relative z-10 w-full max-w-md bg-white rounded-xl text-left overflow-hidden shadow-2xl">
               <div className="bg-white px-6 pt-5 pb-4">
@@ -561,14 +559,14 @@ export default function Tenants() {
                     <p className="text-xs text-gray-500 mt-0.5">{selectedTenant.full_name}</p>
                   </div>
                   <button
-                    onClick={() => !isSubmitting && setIsDocModalOpen(false)}
+                    onClick={() => !isSubmittingDoc && setIsDocModalOpen(false)}
                     className="text-gray-400 hover:text-gray-500 cursor-pointer"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
 
-                <form onSubmit={handleUploadAdditionalDocs} className="space-y-4">
+                <form onSubmit={handleUploadDocs} className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
                       Upload Dokumen KTP {selectedTenant.ktp_url && <span className="text-emerald-600 font-bold">(Sudah Ada)</span>}
@@ -576,7 +574,7 @@ export default function Tenants() {
                     <input
                       type="file"
                       accept="image/*,application/pdf"
-                      onChange={(e) => e.target.files && setNewKtpFile(e.target.files[0])}
+                      onChange={(e) => e.target.files && setKtpFile(e.target.files[0])}
                       className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                     />
                   </div>
@@ -588,7 +586,7 @@ export default function Tenants() {
                     <input
                       type="file"
                       accept="image/*,application/pdf"
-                      onChange={(e) => e.target.files && setNewKkFile(e.target.files[0])}
+                      onChange={(e) => e.target.files && setKkFile(e.target.files[0])}
                       className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                     />
                   </div>
@@ -596,15 +594,15 @@ export default function Tenants() {
                   <div className="mt-5 sm:flex sm:flex-row-reverse pt-4 border-t border-gray-200">
                     <button
                       type="submit"
-                      disabled={isSubmitting || (!newKtpFile && !newKkFile)}
+                      disabled={isSubmittingDoc || (!ktpFile && !kkFile)}
                       className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-xs font-semibold text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 sm:ml-3 sm:w-auto disabled:opacity-50 cursor-pointer"
                     >
-                      {isSubmitting ? 'Mengupload...' : 'Simpan Dokumen'}
+                      {isSubmittingDoc ? 'Mengupload...' : 'Simpan Dokumen'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsDocModalOpen(false)}
-                      disabled={isSubmitting}
+                      disabled={isSubmittingDoc}
                       className="mt-2 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto cursor-pointer"
                     >
                       Batal
