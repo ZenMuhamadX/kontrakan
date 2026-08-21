@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { transactionsApi } from '../lib/api'
-import { Plus, X, Search } from 'lucide-react'
+import { Plus, X, Search, Printer } from 'lucide-react'
+import ReceiptModal from '../components/ReceiptModal'
 
 type Transaction = {
   id: string
@@ -14,6 +15,9 @@ type Transaction = {
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Receipt Modal state
+  const [selectedReceipt, setSelectedReceipt] = useState<Transaction | null>(null)
 
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -94,19 +98,22 @@ export default function Transactions() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Arus Kas</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Arus Kas</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Catatan seluruh pemasukan dan pengeluaran kontrakan.</p>
+        </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow active:scale-95 cursor-pointer"
         >
           <Plus className="w-4 h-4 mr-2" />
           Catat Transaksi
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all">
         {/* Filter Section */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-4 items-center">
+        <div className="p-4 border-b border-gray-100 bg-gray-50/80 flex flex-wrap gap-4 items-center">
           <div className="relative flex-1 min-w-50">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-gray-400" />
@@ -114,14 +121,14 @@ export default function Transactions() {
             <input
               type="text"
               placeholder="Cari keterangan atau kategori..."
-              className="pl-9 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm h-9 border"
+              className="pl-9 block w-full rounded-md border-gray-300 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm h-9 border transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
           <select
-            className="block w-40 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm h-9 border px-3"
+            className="block w-40 rounded-md border-gray-300 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm h-9 border px-3 transition-all cursor-pointer"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
@@ -151,18 +158,21 @@ export default function Transactions() {
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Pengeluaran
                 </th>
+                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Aksi
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
                     Memuat data...
                   </td>
                 </tr>
               ) : filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
                     Belum ada transaksi.
                   </td>
                 </tr>
@@ -193,6 +203,18 @@ export default function Transactions() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-red-600">
                         {!isIncome ? `- Rp ${Number(trx.amount).toLocaleString('id-ID')}` : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        {isIncome && (
+                          <button
+                            onClick={() => setSelectedReceipt(trx)}
+                            className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
+                            title="Cetak Kuitansi"
+                          >
+                            <Printer className="w-3.5 h-3.5 mr-1" />
+                            Kuitansi
+                          </button>
+                        )}
                       </td>
                     </tr>
                   )
@@ -330,6 +352,13 @@ export default function Transactions() {
           </div>
         </div>
       )}
+
+      {/* Modal Cetak Kuitansi */}
+      <ReceiptModal
+        isOpen={!!selectedReceipt}
+        onClose={() => setSelectedReceipt(null)}
+        transaction={selectedReceipt}
+      />
     </div>
   )
 }

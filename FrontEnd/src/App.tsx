@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { DashboardLayout } from './layouts/DashboardLayout'
 import Dashboard from './pages/Dashboard'
 import Rooms from './pages/Rooms'
+import Tenants from './pages/Tenants'
 import Transactions from './pages/Transactions'
 import Login from './pages/Login'
 import { AuthProvider, useAuth } from './lib/AuthContext'
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="rooms" element={<Rooms />} />
+            <Route path="tenants" element={<Tenants />} />
             <Route path="transactions" element={<Transactions />} />
           </Route>
         </Routes>

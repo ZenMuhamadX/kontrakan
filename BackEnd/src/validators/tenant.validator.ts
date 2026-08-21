@@ -16,6 +16,8 @@ export const createTenantSchema = z.object({
   start_date: z.string({
     message: 'Tanggal mulai (start_date) wajib diisi (YYYY-MM-DD)',
   }).regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal harus YYYY-MM-DD'),
+  last_paid_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal harus YYYY-MM-DD').nullable().optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal harus YYYY-MM-DD').nullable().optional(),
 })
 
 export const updateTenantSchema = z.object({
@@ -26,6 +28,8 @@ export const updateTenantSchema = z.object({
   ktp_url: z.string().url('Format URL KTP tidak valid').nullable().optional().or(z.literal('')),
   kk_url: z.string().url('Format URL KK tidak valid').nullable().optional().or(z.literal('')),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal harus YYYY-MM-DD').optional(),
+  last_paid_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal harus YYYY-MM-DD').nullable().optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal harus YYYY-MM-DD').nullable().optional(),
 })
 
 export const queryTenantSchema = z.object({
@@ -34,3 +38,4 @@ export const queryTenantSchema = z.object({
   page: z.string().regex(/^\d+$/).transform(Number).optional(),
   limit: z.string().regex(/^\d+$/).transform(Number).optional(),
 })
+

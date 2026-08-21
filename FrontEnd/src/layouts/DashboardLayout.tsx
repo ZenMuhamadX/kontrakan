@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Home, BedDouble, Receipt, LogOut } from 'lucide-react'
+import { Home, BedDouble, Users, Receipt, LogOut } from 'lucide-react'
 import { useAuth } from '../lib/AuthContext'
 
 export function DashboardLayout() {
@@ -15,6 +15,7 @@ export function DashboardLayout() {
   const navItems = [
     { name: 'Beranda', path: '/', icon: <Home className="w-4 h-4 mr-2" /> },
     { name: 'Kamar', path: '/rooms', icon: <BedDouble className="w-4 h-4 mr-2" /> },
+    { name: 'Penghuni', path: '/tenants', icon: <Users className="w-4 h-4 mr-2" /> },
     { name: 'Transaksi', path: '/transactions', icon: <Receipt className="w-4 h-4 mr-2" /> },
   ]
 

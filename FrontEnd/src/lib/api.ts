@@ -134,14 +134,14 @@ export const propertiesApi = {
     return apiRequest<{ success: boolean; data: any }>(`/properties/${id}`)
   },
 
-  create: async (data: { unit_name: string; status?: string }) => {
+  create: async (data: { unit_name: string; price?: number; status?: string }) => {
     return apiRequest<{ success: boolean; message: string; data: any }>('/properties', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   },
 
-  update: async (id: string, data: { unit_name?: string; status?: string }) => {
+  update: async (id: string, data: { unit_name?: string; price?: number; status?: string }) => {
     return apiRequest<{ success: boolean; message: string; data: any }>(`/properties/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -180,6 +180,8 @@ export const tenantsApi = {
     ktp_url?: string
     kk_url?: string
     start_date: string
+    last_paid_date?: string
+    due_date?: string
   }) => {
     return apiRequest<{ success: boolean; message: string; data: any }>('/tenants', {
       method: 'POST',

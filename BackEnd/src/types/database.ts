@@ -1,6 +1,7 @@
 export interface Property {
   id: string
   unit_name: string
+  price?: number | null
   status: string
   created_at?: string
 }
@@ -14,6 +15,8 @@ export interface Tenant {
   ktp_url?: string | null
   kk_url?: string | null
   start_date: string
+  last_paid_date?: string | null
+  due_date?: string | null
   created_at?: string
 }
 
@@ -26,3 +29,4 @@ export interface Transaction {
   transaction_date: string
   created_at?: string
 }
+
