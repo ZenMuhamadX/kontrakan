@@ -37,6 +37,7 @@ services:
       - "4001:4001"
     environment:
       - NODE_ENV=production
+      - BACKEND_INTERNAL_URL=http://backend:3000
     depends_on:
       - backend
     networks:

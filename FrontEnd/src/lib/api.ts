@@ -1,6 +1,4 @@
-const API_BASE_URL = typeof window !== 'undefined'
-  ? ((window as any).__API_URL__ || `${window.location.protocol}//${window.location.hostname}:3000/api`)
-  : 'http://localhost:3000/api'
+const API_BASE_URL = '/api'
 
 // Helper untuk token auth
 export const getToken = (): string | null => {
