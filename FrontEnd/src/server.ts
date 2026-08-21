@@ -1,4 +1,4 @@
-﻿import { serve } from "bun";
+import { serve } from "bun";
 import path from "node:path";
 import { existsSync } from "node:fs";
 
