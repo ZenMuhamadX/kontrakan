@@ -4,35 +4,24 @@ import Dashboard from './pages/Dashboard'
 import Rooms from './pages/Rooms'
 import Transactions from './pages/Transactions'
 import Login from './pages/Login'
-import { useEffect, useState } from 'react'
-import { supabase } from './lib/supabase'
-import type { Session } from '@supabase/supabase-js'
+import { AuthProvider, useAuth } from './lib/AuthContext'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setLoading(false)
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
+  const { user, loading } = useAuth()
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-gray-500 font-medium">Memuat aplikasi...</p>
+        </div>
+      </div>
+    )
   }
 
-  // If there's no session, redirect to login
-  if (!session) {
+  // If there's no user logged in, redirect to login
+  if (!user) {
     return <Navigate to="/login" replace />
   }
 
@@ -41,17 +30,18 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-        <Route path="/" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
-          <Route index element={<Dashboard />} />
-          <Route path="rooms" element={<Rooms />} />
-          <Route path="transactions" element={<Transactions />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+          <Route path="/" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
+            <Route index element={<Dashboard />} />
+            <Route path="rooms" element={<Rooms />} />
+            <Route path="transactions" element={<Transactions />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
-

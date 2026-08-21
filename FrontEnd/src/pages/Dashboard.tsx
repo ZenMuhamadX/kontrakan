@@ -1,33 +1,40 @@
 import { useState, useEffect } from 'react'
 import { Wallet, TrendingUp, TrendingDown, Receipt } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { transactionsApi } from '../lib/api'
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
     balance: 0,
     income: 0,
     expense: 0,
-    monthlyTransactions: 0
+    monthlyTransactions: 0,
   })
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // We will add real fetch logic later.
   useEffect(() => {
     async function fetchStats() {
-      // Mock data for now until we have actual transactions
-      const { data, error } = await supabase.from('transactions').select('*')
-      if (!error && data) {
+      setLoading(true)
+      try {
+        const res = await transactionsApi.getAll({ limit: 100 })
+        const data = res.data || []
+
         let income = 0
         let expense = 0
         let monthly = 0
         const currentMonth = new Date().getMonth()
+        const currentYear = new Date().getFullYear()
 
-        data.forEach(t => {
-          if (t.type === 'income') income += Number(t.amount)
-          if (t.type === 'expense') expense += Number(t.amount)
-          
-          const tDate = new Date(t.transaction_date)
-          if (tDate.getMonth() === currentMonth) {
-            monthly++
+        data.forEach((t) => {
+          const amt = Number(t.amount) || 0
+          if (t.type === 'income' || t.type === 'pemasukan') income += amt
+          if (t.type === 'expense' || t.type === 'pengeluaran') expense += amt
+
+          if (t.transaction_date) {
+            const tDate = new Date(t.transaction_date)
+            if (tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear) {
+              monthly++
+            }
           }
         })
 
@@ -35,11 +42,16 @@ export default function Dashboard() {
           balance: income - expense,
           income,
           expense,
-          monthlyTransactions: monthly
+          monthlyTransactions: monthly,
         })
+        setRecentTransactions(data.slice(0, 5))
+      } catch (err) {
+        console.error('Failed to fetch dashboard stats:', err)
+      } finally {
+        setLoading(false)
       }
     }
-    
+
     fetchStats()
   }, [])
 
@@ -92,13 +104,63 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Filter and Table Section Placeholder for recent activity */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-5 border-b border-gray-200 bg-gray-50/50 flex flex-wrap gap-4 items-center justify-between">
+      {/* Recent Activity Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-5 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-4 items-center justify-between">
           <h2 className="text-lg font-medium text-gray-900">Aktivitas Terbaru</h2>
         </div>
-        <div className="p-5">
-           <p className="text-sm text-gray-500 text-center py-8">Belum ada aktivitas. Silakan kelola di menu Kamar dan Transaksi.</p>
+        <div className="p-0">
+          {loading ? (
+            <p className="text-sm text-gray-500 text-center py-8">Memuat aktivitas...</p>
+          ) : recentTransactions.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">Belum ada transaksi.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 text-xs font-medium text-gray-500 uppercase">
+                  <tr>
+                    <th className="px-6 py-3 text-left">Tanggal</th>
+                    <th className="px-6 py-3 text-left">Kategori</th>
+                    <th className="px-6 py-3 text-left">Keterangan</th>
+                    <th className="px-6 py-3 text-right">Nominal</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {recentTransactions.map((trx) => {
+                    const isIncome = trx.type === 'income' || trx.type === 'pemasukan'
+                    return (
+                      <tr key={trx.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(trx.transaction_date).toLocaleDateString('id-ID', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              isIncome ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {trx.category}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">{trx.description || '-'}</td>
+                        <td
+                          className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
+                            isIncome ? 'text-green-600' : 'text-red-600'
+                          }`}
+                        >
+                          {isIncome ? '+' : '-'} Rp {Number(trx.amount).toLocaleString('id-ID')}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

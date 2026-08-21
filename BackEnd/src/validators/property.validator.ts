@@ -6,7 +6,7 @@ export const createPropertySchema = z.object({
   }).min(1, 'Nama unit tidak boleh kosong').max(100, 'Nama unit maksimal 100 karakter'),
   status: z.string({
     message: 'Status unit wajib diisi',
-  }).min(1, 'Status tidak boleh kosong').default('available'),
+  }).min(1, 'Status tidak boleh kosong').default('vacant'),
 })
 
 export const updatePropertySchema = z.object({
