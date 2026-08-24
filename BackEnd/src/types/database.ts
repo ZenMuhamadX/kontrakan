@@ -35,6 +35,7 @@ export interface Payment {
   id: string
   tenant_id: string
   property_id: string
+  transaction_id?: string | null
   receipt_number: string
   amount_paid: number
   payment_method: 'cash' | 'transfer' | 'qris' | 'ewallet' | string
@@ -43,6 +44,7 @@ export interface Payment {
   created_at?: string
   tenants?: Tenant
   properties?: Property
+  transactions?: Transaction
 }
 
 export interface ManualPayRequest {
@@ -52,3 +54,25 @@ export interface ManualPayRequest {
   notes?: string | null
   paid_at?: string
 }
+
+export interface VerifyPaymentResponse {
+  is_valid: boolean
+  message: string
+  code?: string
+  type?: 'KWX' | 'TRX'
+  data?: {
+    payment_id?: string
+    receipt_number?: string
+    transaction_code?: string
+    tenant_name?: string
+    tenant_phone?: string
+    unit_name?: string
+    amount?: number
+    payment_method?: string
+    paid_at?: string
+    notes?: string | null
+    status?: string
+    hash_verified?: boolean
+  }
+}
+

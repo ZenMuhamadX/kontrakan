@@ -3,18 +3,9 @@ import { supabase } from '../config/supabase'
 import { validateBody, validateQuery } from '../middlewares/validate.middleware'
 import { manualPaySchema, queryPaymentSchema } from '../validators/payment.validator'
 import { invalidateDashboardCache } from './dashboard.route'
+import { generateHashId, verifyHashId } from '../utils/hash-id.util'
 
 const paymentsRoute = new Hono()
-
-// Helper: Generate format nomor kwitansi unik (KWT-YYYYMMDD-XXXX)
-function generateReceiptNumber(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const date = String(now.getDate()).padStart(2, '0')
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000)
-  return `KWT-${year}${month}${date}-${randomSuffix}`
-}
 
 // 1. GET ALL Payments (dengan filter tenant_id, property_id, pagination)
 paymentsRoute.get('/', validateQuery(queryPaymentSchema), async (c) => {
@@ -28,7 +19,7 @@ paymentsRoute.get('/', validateQuery(queryPaymentSchema), async (c) => {
 
   let query = supabase
     .from('payments')
-    .select('*, tenants(full_name, phone), properties(unit_name, price)', { count: 'exact' })
+    .select('*, tenants(full_name, phone), properties(unit_name, price), transactions(id, type, amount, description, transaction_date)', { count: 'exact' })
     .order('paid_at', { ascending: false })
     .range(from, to)
 
@@ -57,13 +48,134 @@ paymentsRoute.get('/', validateQuery(queryPaymentSchema), async (c) => {
   })
 })
 
-// 2. GET Single Payment Detail by ID
+// 2. GET Verify Payment Authenticity by Code (KWX... atau TRX...)
+paymentsRoute.get('/verify/:code', async (c) => {
+  const rawCode = (c.req.param('code') || '').trim().toUpperCase()
+
+  if (!rawCode) {
+    return c.json({ is_valid: false, message: 'Kode verifikasi tidak boleh kosong' }, 400)
+  }
+
+  // A. Jika kode Kwitansi (KWX-...)
+  if (rawCode.startsWith('KWX')) {
+    const { data: payment, error } = await supabase
+      .from('payments')
+      .select('*, tenants(id, full_name, phone), properties(id, unit_name, price), transactions(*)')
+      .eq('receipt_number', rawCode)
+      .single()
+
+    if (error || !payment) {
+      return c.json(
+        {
+          is_valid: false,
+          message: 'Kwitansi dengan kode tersebut tidak ditemukan dalam database.',
+          code: rawCode,
+          type: 'KWX',
+        },
+        404
+      )
+    }
+
+    const isValidHash = verifyHashId(rawCode, payment.paid_at, payment.tenant_id)
+
+    return c.json({
+      is_valid: isValidHash,
+      message: isValidHash
+        ? 'Bukti pembayaran kwitansi sah & terverifikasi asli oleh sistem.'
+        : 'Peringatan: Nomor kwitansi ditemukan tetapi hash keaslian tidak cocok (diduga manipulasi data).',
+      code: rawCode,
+      type: 'KWX',
+      data: {
+        payment_id: payment.id,
+        receipt_number: payment.receipt_number,
+        transaction_id: payment.transaction_id,
+        tenant_name: payment.tenants?.full_name,
+        tenant_phone: payment.tenants?.phone,
+        unit_name: payment.properties?.unit_name,
+        amount: payment.amount_paid,
+        payment_method: payment.payment_method,
+        paid_at: payment.paid_at,
+        notes: payment.notes,
+        status: 'LUNAS / SAH',
+        hash_verified: isValidHash,
+      },
+    })
+  }
+
+  // B. Jika kode Transaksi (TRX-...)
+  if (rawCode.startsWith('TRX')) {
+    // Cari transaksi yang mencantumkan kode TRX pada deskripsi
+    const { data: transactions, error: trxError } = await supabase
+      .from('transactions')
+      .select('*')
+      .ilike('description', `%${rawCode}%`)
+      .limit(1)
+
+    const transaction = transactions && transactions.length > 0 ? transactions[0] : null
+
+    if (trxError || !transaction) {
+      return c.json(
+        {
+          is_valid: false,
+          message: 'Transaksi dengan kode tersebut tidak ditemukan dalam database.',
+          code: rawCode,
+          type: 'TRX',
+        },
+        404
+      )
+    }
+
+    // Lookup payment yang berelasi dengan transaksi ini
+    const { data: payment } = await supabase
+      .from('payments')
+      .select('*, tenants(id, full_name, phone), properties(id, unit_name, price)')
+      .eq('transaction_id', transaction.id)
+      .single()
+
+    let isValidHash = false
+    if (payment) {
+      isValidHash = verifyHashId(rawCode, payment.paid_at, payment.tenant_id)
+    }
+
+    return c.json({
+      is_valid: isValidHash,
+      message: isValidHash
+        ? 'Transaksi kas masuk sah & terverifikasi asli oleh sistem.'
+        : 'Data transaksi ditemukan, namun hash keaslian tidak sesuai.',
+      code: rawCode,
+      type: 'TRX',
+      data: {
+        transaction_id: transaction.id,
+        transaction_code: rawCode,
+        receipt_number: payment?.receipt_number,
+        tenant_name: payment?.tenants?.full_name,
+        unit_name: payment?.properties?.unit_name,
+        amount: transaction.amount,
+        transaction_date: transaction.transaction_date,
+        description: transaction.description,
+        status: 'TERCATAT DI KAS',
+        hash_verified: isValidHash,
+      },
+    })
+  }
+
+  return c.json(
+    {
+      is_valid: false,
+      message: 'Format kode tidak valid. Kode verifikasi harus diawali dengan KWX- atau TRX-.',
+      code: rawCode,
+    },
+    400
+  )
+})
+
+// 3. GET Single Payment Detail by ID
 paymentsRoute.get('/:id', async (c) => {
   const id = c.req.param('id')
 
   const { data, error } = await supabase
     .from('payments')
-    .select('*, tenants(*), properties(*)')
+    .select('*, tenants(*), properties(*), transactions(*)')
     .eq('id', id)
     .single()
 
@@ -80,7 +192,7 @@ paymentsRoute.get('/:id', async (c) => {
   })
 })
 
-// 3. POST Manual Payment (Alur "Sudah Bayar" Otomatis)
+// 4. POST Manual Payment (Alur "Sudah Bayar" Terverifikasi)
 paymentsRoute.post('/manual-pay', validateBody(manualPaySchema), async (c) => {
   const body = c.req.valid('json')
   const { tenant_id, amount, payment_method = 'cash', notes, paid_at } = body
@@ -98,31 +210,13 @@ paymentsRoute.post('/manual-pay', validateBody(manualPaySchema), async (c) => {
 
   const paidDate = paid_at ? new Date(paid_at) : new Date()
   const paidDateStr = paidDate.toISOString().split('T')[0]
-  const receiptNumber = generateReceiptNumber()
 
-  // 2. Catat Bukti Pembayaran / Kwitansi ke kontrakan.payments
-  const { data: paymentData, error: paymentError } = await supabase
-    .from('payments')
-    .insert([
-      {
-        tenant_id: tenant.id,
-        property_id: tenant.property_id,
-        receipt_number: receiptNumber,
-        amount_paid: amount,
-        payment_method,
-        notes: notes || `Pembayaran sewa ${tenant.properties?.unit_name || ''} - ${tenant.full_name}`,
-        paid_at: paidDate.toISOString(),
-      },
-    ])
-    .select('*, tenants(full_name, phone), properties(unit_name, price)')
-    .single()
+  // 2. Generate Hash ID Standard (KWX dan TRX dengan 12-digit hash keaslian)
+  const kwxCode = generateHashId('KWX', paidDate, tenant.id)
+  const trxCode = generateHashId('TRX', paidDate, tenant.id)
 
-  if (paymentError) {
-    return c.json({ success: false, message: `Gagal membuat kwitansi: ${paymentError.message}` }, 500)
-  }
-
-  // 3. Auto-insert Kas Masuk ke kontrakan.transactions
-  const transactionDescription = `Pembayaran Sewa Kamar ${tenant.properties?.unit_name || ''} - ${tenant.full_name} (${receiptNumber})`
+  // 3. Catat Kas Masuk ke kontrakan.transactions
+  const transactionDescription = `Pembayaran Sewa Kamar ${tenant.properties?.unit_name || ''} - ${tenant.full_name} (${trxCode})`
   const { data: transactionData, error: trxError } = await supabase
     .from('transactions')
     .insert([
@@ -139,9 +233,32 @@ paymentsRoute.post('/manual-pay', validateBody(manualPaySchema), async (c) => {
 
   if (trxError) {
     console.error('Gagal mencatat transaksi kas masuk otomatis:', trxError)
+    return c.json({ success: false, message: `Gagal mencatat transaksi kas: ${trxError.message}` }, 500)
   }
 
-  // 4. Hitung & Update due_date (+1 bulan) dan last_paid_date pada tabel kontrakan.tenants
+  // 4. Catat Bukti Pembayaran / Kwitansi ke kontrakan.payments dengan transaction_id (FK)
+  const { data: paymentData, error: paymentError } = await supabase
+    .from('payments')
+    .insert([
+      {
+        tenant_id: tenant.id,
+        property_id: tenant.property_id,
+        transaction_id: transactionData.id,
+        receipt_number: kwxCode,
+        amount_paid: amount,
+        payment_method,
+        notes: notes || `Pembayaran sewa ${tenant.properties?.unit_name || ''} - ${tenant.full_name}`,
+        paid_at: paidDate.toISOString(),
+      },
+    ])
+    .select('*, tenants(full_name, phone), properties(unit_name, price), transactions(*)')
+    .single()
+
+  if (paymentError) {
+    return c.json({ success: false, message: `Gagal membuat kwitansi: ${paymentError.message}` }, 500)
+  }
+
+  // 5. Hitung & Update due_date (+1 bulan) dan last_paid_date pada tabel kontrakan.tenants
   let nextDueDate: Date
   if (tenant.due_date) {
     nextDueDate = new Date(tenant.due_date)
@@ -169,18 +286,19 @@ paymentsRoute.post('/manual-pay', validateBody(manualPaySchema), async (c) => {
     console.error('Gagal memperbarui status jatuh tempo tenant:', updateTenantError)
   }
 
-  // 5. Invalidate Backend In-Memory Cache agar data statistik dashboard langsung sinkron
+  // 6. Invalidate Backend In-Memory Cache agar data statistik dashboard langsung sinkron
   invalidateDashboardCache()
 
   return c.json(
     {
       success: true,
-      message: 'Pembayaran berhasil diverifikasi! Kwitansi, kas masuk, dan status jatuh tempo penghuni telah diperbarui otomatis.',
+      message: 'Pembayaran berhasil diverifikasi! Kwitansi KWX, transaksi TRX, dan status jatuh tempo penghuni telah diperbarui.',
       data: {
         payment: paymentData,
         transaction: transactionData,
         tenant: updatedTenant || tenant,
-        receipt_number: receiptNumber,
+        receipt_number: kwxCode,
+        transaction_code: trxCode,
       },
     },
     201
@@ -188,3 +306,4 @@ paymentsRoute.post('/manual-pay', validateBody(manualPaySchema), async (c) => {
 })
 
 export default paymentsRoute
+

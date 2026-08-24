@@ -398,4 +398,14 @@ export const paymentsApi = {
   getById: async (id: string) => {
     return apiRequest<{ success: boolean; data: any }>(`/payments/${id}`)
   },
+
+  verify: async (code: string) => {
+    return apiRequest<{
+      is_valid: boolean
+      message: string
+      code?: string
+      type?: 'KWX' | 'TRX'
+      data?: any
+    }>(`/payments/verify/${encodeURIComponent(code)}`)
+  },
 }
