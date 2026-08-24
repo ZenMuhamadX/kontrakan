@@ -4,6 +4,7 @@ import { Plus, X, Search, Printer, Download, FileText } from 'lucide-react'
 import ReceiptModal from '../components/ReceiptModal'
 import FinancialReportModal from '../components/FinancialReportModal'
 import { exportTransactionsCSV } from '../lib/exportUtils'
+import { useDialog } from '../lib/DialogContext'
 
 type Transaction = {
   id: string
@@ -17,6 +18,7 @@ type Transaction = {
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+  const { notify } = useDialog()
 
   // Receipt Modal state
   const [selectedReceipt, setSelectedReceipt] = useState<Transaction | null>(null)
@@ -54,7 +56,7 @@ export default function Transactions() {
     e.preventDefault()
 
     if (!form.amount || Number(form.amount) <= 0) {
-      alert('Harap isi Nominal (Rp) dengan benar.')
+      notify.error('Harap isi Nominal (Rp) dengan benar.')
       return
     }
 
@@ -78,10 +80,11 @@ export default function Transactions() {
         description: '',
         transaction_date: new Date().toISOString().split('T')[0],
       })
+      notify.success('Transaksi berhasil dicatat!')
       fetchTransactions()
     } catch (error: any) {
       console.error('Error:', error)
-      alert(error.message || 'Gagal menyimpan transaksi.')
+      notify.error(error.message || 'Gagal menyimpan transaksi.')
     } finally {
       setIsSubmitting(false)
     }

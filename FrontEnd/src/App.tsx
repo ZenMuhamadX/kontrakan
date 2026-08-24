@@ -6,6 +6,7 @@ import Tenants from './pages/Tenants'
 import Transactions from './pages/Transactions'
 import Login from './pages/Login'
 import { AuthProvider, useAuth } from './lib/AuthContext'
+import { DialogProvider } from './lib/DialogContext'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -32,18 +33,20 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+      <DialogProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
 
-          <Route path="/" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
-            <Route index element={<Dashboard />} />
-            <Route path="rooms" element={<Rooms />} />
-            <Route path="tenants" element={<Tenants />} />
-            <Route path="transactions" element={<Transactions />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+            <Route path="/" element={<PrivateRoute><DashboardLayout /></PrivateRoute>}>
+              <Route index element={<Dashboard />} />
+              <Route path="rooms" element={<Rooms />} />
+              <Route path="tenants" element={<Tenants />} />
+              <Route path="transactions" element={<Transactions />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </DialogProvider>
     </AuthProvider>
   )
 }

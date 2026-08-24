@@ -16,6 +16,7 @@ import {
   Info,
 } from 'lucide-react'
 import ReceiptModal from '../components/ReceiptModal'
+import { useDialog } from '../lib/DialogContext'
 
 type Property = {
   id: string
@@ -37,6 +38,7 @@ type TenantForm = {
 export default function Rooms() {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+  const { confirm, notify } = useDialog()
 
   // Modal Isi Kamar state
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -108,23 +110,33 @@ export default function Rooms() {
       setIsAddRoomModalOpen(false)
       setNewRoomName('')
       setNewRoomPrice('')
+      notify.success('Kamar baru berhasil ditambahkan!')
       fetchProperties()
     } catch (error: any) {
       console.error('Error adding room:', error)
-      alert(error.message || 'Gagal menambahkan kamar.')
+      notify.error(error.message || 'Gagal menambahkan kamar.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleDeleteProperty = async (property: Property) => {
-    if (!confirm(`Yakin ingin menghapus ${property.unit_name}?`)) return
+    const isConfirmed = await confirm({
+      title: 'Hapus Unit Kamar',
+      message: `Apakah Anda yakin ingin menghapus "${property.unit_name}"? Tindakan ini tidak dapat dibatalkan.`,
+      confirmText: 'Ya, Hapus',
+      cancelText: 'Batal',
+      variant: 'danger',
+    })
+    if (!isConfirmed) return
+
     try {
       await propertiesApi.delete(property.id)
+      notify.success(`Kamar ${property.unit_name} berhasil dihapus.`)
       fetchProperties()
     } catch (error: any) {
       console.error('Error deleting property:', error)
-      alert(error.message || 'Gagal menghapus kamar.')
+      notify.error(error.message || 'Gagal menghapus kamar.')
     }
   }
 
@@ -176,17 +188,25 @@ export default function Rooms() {
 
   const handleEvictTenant = async () => {
     if (!selectedProperty || !tenantDetail) return
-    if (!confirm('Yakin ingin mengeluarkan penghuni ini?')) return
+    const isConfirmed = await confirm({
+      title: 'Keluarkan Penghuni',
+      message: `Apakah Anda yakin ingin mengeluarkan penghuni "${tenantDetail.full_name}" dari ${selectedProperty.unit_name}? Status kamar akan kembali Kosong/Tersedia.`,
+      confirmText: 'Ya, Keluarkan',
+      cancelText: 'Batal',
+      variant: 'danger',
+    })
+    if (!isConfirmed) return
 
     setIsSubmitting(true)
     try {
       await tenantsApi.delete(tenantDetail.id)
       await propertiesApi.update(selectedProperty.id, { status: 'vacant' })
       setIsDetailModalOpen(false)
+      notify.success(`Penghuni ${tenantDetail.full_name} berhasil dikeluarkan.`)
       fetchProperties()
     } catch (error: any) {
       console.error('Error:', error)
-      alert(error.message || 'Gagal mengeluarkan penghuni.')
+      notify.error(error.message || 'Gagal mengeluarkan penghuni.')
     } finally {
       setIsSubmitting(false)
     }
@@ -256,10 +276,11 @@ export default function Rooms() {
         ktp_file: null,
         kk_file: null,
       })
+      notify.success('Penghuni baru berhasil didaftarkan!')
       fetchProperties()
     } catch (error: any) {
       console.error('Error submitting form:', error)
-      alert(error.message || 'Terjadi kesalahan saat menyimpan data.')
+      notify.error(error.message || 'Terjadi kesalahan saat menyimpan data.')
     } finally {
       setIsSubmitting(false)
     }
@@ -273,7 +294,6 @@ export default function Rooms() {
     setPayAmount(singlePrice || '')
     const todayStr = new Date().toISOString().split('T')[0]
     setPayDate(todayStr)
-    setPayNotes(`Pembayaran sewa ${selectedProperty.unit_name} (1 Bulan) - ${tenantDetail.full_name}`)
     setIsPayModalOpen(true)
   }
 
@@ -284,44 +304,39 @@ export default function Rooms() {
       const total = Number(selectedProperty.price) * months
       setPayAmount(total)
     }
-    setPayNotes(`Pembayaran sewa ${selectedProperty?.unit_name} (${months} Bulan) - ${tenantDetail?.full_name}`)
   }
 
-  // Handle Simpan Pembayaran Sewa Akumulatif
-  const handleConfirmPayment = async (e: React.FormEvent) => {
+  // Simpan Transaksi Pembayaran Sewa
+  const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedProperty || !tenantDetail || !payAmount) return
+    if (!selectedProperty || !tenantDetail) return
 
     setIsSubmitting(true)
     try {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const payDateObj = new Date(payDate)
-      payDateObj.setHours(0, 0, 0, 0)
-
-      let baseDateObj = payDateObj
-      if (tenantDetail.due_date) {
-        const existingDueObj = new Date(tenantDetail.due_date)
-        existingDueObj.setHours(0, 0, 0, 0)
-        if (existingDueObj.getTime() >= payDateObj.getTime()) {
-          baseDateObj = existingDueObj
-        }
-      }
-
-      const addedDays = (payMonths || 1) * 30
-      const newDueDateObj = new Date(baseDateObj.getTime() + addedDays * 24 * 60 * 60 * 1000)
-      const newDueDateStr = newDueDateObj.toISOString().split('T')[0]
-
-      // 1. Catat ke Transaksi / Arus Kas
+      // 1. Simpan Transaksi Baru
       await transactionsApi.create({
         type: 'income',
         category: 'Sewa Bulanan',
         amount: Number(payAmount),
-        description: payNotes || `Pembayaran sewa ${selectedProperty.unit_name} (${payMonths} Bulan) - ${tenantDetail.full_name}`,
+        description: `Bayar sewa ${selectedProperty.unit_name} an. ${tenantDetail.full_name} (${payMonths} bulan)`,
         transaction_date: payDate,
       })
 
-      // 2. Update tenant di database
+      // 2. Hitung Jatuh Tempo Baru
+      let baseDate: Date
+      if (tenantDetail.due_date) {
+        baseDate = new Date(tenantDetail.due_date)
+      } else if (tenantDetail.last_paid_date) {
+        baseDate = new Date(tenantDetail.last_paid_date)
+      } else {
+        baseDate = new Date(tenantDetail.start_date || payDate)
+      }
+
+      const newDueDateObj = new Date(baseDate)
+      newDueDateObj.setDate(newDueDateObj.getDate() + 30 * payMonths)
+      const newDueDateStr = newDueDateObj.toISOString().split('T')[0]
+
+      // 3. Update data Tenant (last_paid_date & due_date)
       await tenantsApi.update(tenantDetail.id, {
         last_paid_date: payDate,
         due_date: newDueDateStr,
@@ -336,10 +351,10 @@ export default function Rooms() {
       setIsPayModalOpen(false)
       fetchProperties()
       fetchTenantTransactions(selectedProperty.unit_name, tenantDetail.full_name)
-      alert(`Ô£à Pembayaran sewa ${payMonths} bulan berhasil dicatat! Jatuh tempo baru: ${newDueDateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`)
+      notify.success(`Pembayaran sewa ${payMonths} bulan berhasil dicatat! Jatuh tempo baru: ${newDueDateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`)
     } catch (error: any) {
       console.error('Error recording payment:', error)
-      alert(error.message || 'Gagal mencatat pembayaran.')
+      notify.error(error.message || 'Gagal mencatat pembayaran.')
     } finally {
       setIsSubmitting(false)
     }
@@ -350,7 +365,7 @@ export default function Rooms() {
     e.preventDefault()
     if (!tenantDetail) return
     if (!newKtpFile && !newKkFile) {
-      alert('Harap pilih file KTP atau KK yang ingin diupload.')
+      notify.warning('Harap pilih file KTP atau KK yang ingin diupload.')
       return
     }
 
@@ -373,10 +388,10 @@ export default function Rooms() {
       setNewKtpFile(null)
       setNewKkFile(null)
       fetchProperties()
-      alert('Ô£à Dokumen berhasil diperbarui!')
+      notify.success('Dokumen berhasil diperbarui!')
     } catch (error: any) {
       console.error('Error uploading docs:', error)
-      alert(error.message || 'Gagal mengupload dokumen.')
+      notify.error(error.message || 'Gagal mengupload dokumen.')
     } finally {
       setIsSubmitting(false)
     }
@@ -1047,7 +1062,7 @@ export default function Rooms() {
                   </button>
                 </div>
 
-                <form onSubmit={handleConfirmPayment} className="space-y-3.5">
+                <form onSubmit={handleSavePayment} className="space-y-3.5">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                       Jumlah Bulan yang Dibayar
@@ -1095,16 +1110,7 @@ export default function Rooms() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Keterangan Transaksi</label>
-                    <input
-                      type="text"
-                      value={payNotes}
-                      onChange={(e) => setPayNotes(e.target.value)}
-                      className="block w-full border border-gray-300 rounded-md shadow-xs py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-xs"
-                      placeholder="Keterangan sewa"
-                    />
-                  </div>
+
 
                   <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-200 text-[11px] text-blue-800 space-y-0.5">
                     <p className="font-semibold">­ƒÆí Info Perhitungan Jatuh Tempo:</p>

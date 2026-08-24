@@ -19,6 +19,7 @@ import {
 import { exportTenantsCSV } from '../lib/exportUtils'
 import { Download } from 'lucide-react'
 import ReceiptModal from '../components/ReceiptModal'
+import { useDialog } from '../lib/DialogContext'
 
 export default function Tenants() {
   const [tenants, setTenants] = useState<any[]>([])
@@ -26,6 +27,7 @@ export default function Tenants() {
   const [transactions, setTransactions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const { notify } = useDialog()
 
   // State Modal Detail & Transaksi
   const [selectedTenant, setSelectedTenant] = useState<any | null>(null)
@@ -91,7 +93,7 @@ export default function Tenants() {
     e.preventDefault()
     if (!targetTenantDoc) return
     if (!ktpFile && !kkFile) {
-      alert('Harap pilih minimal 1 file (KTP atau KK) untuk diupload.')
+      notify.warning('Harap pilih minimal 1 file (KTP atau KK) untuk diupload.')
       return
     }
 
@@ -111,10 +113,10 @@ export default function Tenants() {
       await tenantsApi.update(targetTenantDoc.id, updatePayload)
       setIsDocModalOpen(false)
       fetchData()
-      alert('ԣ� Dokumen penghuni berhasil diperbarui!')
+      notify.success('Dokumen penghuni berhasil diperbarui!')
     } catch (error: any) {
       console.error('Error uploading doc:', error)
-      alert(error.message || 'Gagal mengupload dokumen.')
+      notify.error(error.message || 'Gagal mengupload dokumen.')
     } finally {
       setIsSubmittingDoc(false)
     }
