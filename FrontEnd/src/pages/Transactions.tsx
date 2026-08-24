@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { transactionsApi } from '../lib/api'
-import { Plus, X, Search, Printer } from 'lucide-react'
+import { Plus, X, Search, Printer, Download, FileText } from 'lucide-react'
 import ReceiptModal from '../components/ReceiptModal'
+import FinancialReportModal from '../components/FinancialReportModal'
+import { exportTransactionsCSV } from '../lib/exportUtils'
 
 type Transaction = {
   id: string
@@ -18,6 +20,7 @@ export default function Transactions() {
 
   // Receipt Modal state
   const [selectedReceipt, setSelectedReceipt] = useState<Transaction | null>(null)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
 
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -38,7 +41,7 @@ export default function Transactions() {
   const fetchTransactions = async () => {
     setLoading(true)
     try {
-      const res = await transactionsApi.getAll({ limit: 100 })
+      const res = await transactionsApi.getAll({ limit: 500 })
       if (res.data) setTransactions(res.data)
     } catch (err) {
       console.error('Error fetching transactions:', err)
@@ -97,18 +100,36 @@ export default function Transactions() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Arus Kas</h1>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Arus Kas & Transaksi</h1>
           <p className="text-xs text-gray-500 mt-0.5">Catatan seluruh pemasukan dan pengeluaran kontrakan.</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow active:scale-95 cursor-pointer"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Catat Transaksi
-        </button>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => exportTransactionsCSV(filteredTransactions)}
+            className="flex items-center px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+            title="Download transaksi yang difilter ke format Excel CSV"
+          >
+            <Download className="w-4 h-4 mr-1.5" />
+            Export CSV
+          </button>
+          <button
+            onClick={() => setIsReportModalOpen(true)}
+            className="flex items-center px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+          >
+            <FileText className="w-4 h-4 mr-1.5" />
+            Rekap Laporan
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Catat Transaksi
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all">
@@ -359,6 +380,14 @@ export default function Transactions() {
         onClose={() => setSelectedReceipt(null)}
         transaction={selectedReceipt}
       />
+
+      {/* Modal Rekap Laporan Keuangan */}
+      <FinancialReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        transactions={transactions}
+      />
     </div>
   )
 }
+

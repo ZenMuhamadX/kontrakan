@@ -1,4 +1,4 @@
-﻿﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { tenantsApi, propertiesApi, transactionsApi, storageApi } from '../lib/api'
 import {
   Users,
@@ -16,6 +16,8 @@ import {
   Upload,
   X,
 } from 'lucide-react'
+import { exportTenantsCSV } from '../lib/exportUtils'
+import { Download } from 'lucide-react'
 import ReceiptModal from '../components/ReceiptModal'
 
 export default function Tenants() {
@@ -188,6 +190,15 @@ export default function Tenants() {
             Kelola data semua penghuni, kelengkapan dokumen KTP & KK, serta riwayat pembayarannya.
           </p>
         </div>
+
+        <button
+          onClick={() => exportTenantsCSV(filteredTenants)}
+          className="flex items-center self-start sm:self-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-all active:scale-95 cursor-pointer"
+          title="Download data penghuni ke file Excel CSV"
+        >
+          <Download className="w-4 h-4 mr-1.5" />
+          Export Data Penghuni (CSV)
+        </button>
       </div>
 
       {/* Filter / Search Bar */}
