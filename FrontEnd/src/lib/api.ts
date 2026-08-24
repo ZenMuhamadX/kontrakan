@@ -360,3 +360,42 @@ export const dashboardApi = {
   },
 }
 
+// 7. Payments & Kwitansi API
+export const paymentsApi = {
+  manualPay: async (data: {
+    tenant_id: string
+    amount: number
+    payment_method?: 'cash' | 'transfer' | 'qris' | 'ewallet' | string
+    notes?: string | null
+    paid_at?: string
+  }) => {
+    return apiRequest<{
+      success: boolean
+      message: string
+      data: {
+        payment: any
+        transaction: any
+        tenant: any
+        receipt_number: string
+      }
+    }>('/payments/manual-pay', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  getAll: async (params?: { tenant_id?: string; property_id?: string; page?: number; limit?: number }) => {
+    const query = new URLSearchParams()
+    if (params?.tenant_id) query.set('tenant_id', params.tenant_id)
+    if (params?.property_id) query.set('property_id', params.property_id)
+    if (params?.page) query.set('page', params.page.toString())
+    if (params?.limit) query.set('limit', params.limit.toString())
+
+    const qs = query.toString() ? `?${query.toString()}` : ''
+    return apiRequest<{ success: boolean; data: any[]; meta: any }>(`/payments${qs}`)
+  },
+
+  getById: async (id: string) => {
+    return apiRequest<{ success: boolean; data: any }>(`/payments/${id}`)
+  },
+}

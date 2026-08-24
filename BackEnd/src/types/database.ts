@@ -18,6 +18,7 @@ export interface Tenant {
   last_paid_date?: string | null
   due_date?: string | null
   created_at?: string
+  properties?: Property
 }
 
 export interface Transaction {
@@ -30,3 +31,24 @@ export interface Transaction {
   created_at?: string
 }
 
+export interface Payment {
+  id: string
+  tenant_id: string
+  property_id: string
+  receipt_number: string
+  amount_paid: number
+  payment_method: 'cash' | 'transfer' | 'qris' | 'ewallet' | string
+  notes?: string | null
+  paid_at: string
+  created_at?: string
+  tenants?: Tenant
+  properties?: Property
+}
+
+export interface ManualPayRequest {
+  tenant_id: string
+  amount: number
+  payment_method?: 'cash' | 'transfer' | 'qris' | 'ewallet' | string
+  notes?: string | null
+  paid_at?: string
+}

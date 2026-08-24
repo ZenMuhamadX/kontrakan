@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { propertiesApi, tenantsApi, storageApi, transactionsApi } from '../lib/api'
+import { propertiesApi, tenantsApi, storageApi, transactionsApi, paymentsApi } from '../lib/api'
 import {
   Plus,
   Upload,
@@ -306,52 +306,37 @@ export default function Rooms() {
     }
   }
 
-  // Simpan Transaksi Pembayaran Sewa
+  // Simpan Transaksi Pembayaran Sewa via paymentsApi (menghasilkan kwitansi + transaksi kas)
   const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedProperty || !tenantDetail) return
 
     setIsSubmitting(true)
     try {
-      // 1. Simpan Transaksi Baru
-      await transactionsApi.create({
-        type: 'income',
-        category: 'Sewa Bulanan',
+      const result = await paymentsApi.manualPay({
+        tenant_id: tenantDetail.id,
         amount: Number(payAmount),
-        description: `Bayar sewa ${selectedProperty.unit_name} an. ${tenantDetail.full_name} (${payMonths} bulan)`,
-        transaction_date: payDate,
+        payment_method: 'cash',
+        notes: `Sewa ${payMonths} bulan - ${selectedProperty.unit_name}`,
+        paid_at: payDate,
       })
 
-      // 2. Hitung Jatuh Tempo Baru
-      let baseDate: Date
-      if (tenantDetail.due_date) {
-        baseDate = new Date(tenantDetail.due_date)
-      } else if (tenantDetail.last_paid_date) {
-        baseDate = new Date(tenantDetail.last_paid_date)
-      } else {
-        baseDate = new Date(tenantDetail.start_date || payDate)
+      const updatedTenant = result.data?.tenant
+      if (updatedTenant) {
+        setTenantDetail((prev: any) => ({
+          ...prev,
+          last_paid_date: updatedTenant.last_paid_date,
+          due_date: updatedTenant.due_date,
+        }))
       }
 
-      const newDueDateObj = new Date(baseDate)
-      newDueDateObj.setDate(newDueDateObj.getDate() + 30 * payMonths)
-      const newDueDateStr = newDueDateObj.toISOString().split('T')[0]
-
-      // 3. Update data Tenant (last_paid_date & due_date)
-      await tenantsApi.update(tenantDetail.id, {
-        last_paid_date: payDate,
-        due_date: newDueDateStr,
-      })
-
-      const updatedTenant = {
-        ...tenantDetail,
-        last_paid_date: payDate,
-        due_date: newDueDateStr,
-      }
-      setTenantDetail(updatedTenant)
       setIsPayModalOpen(false)
       fetchProperties()
       fetchTenantTransactions(selectedProperty.unit_name, tenantDetail.full_name)
-      notify.success(`Pembayaran sewa ${payMonths} bulan berhasil dicatat! Jatuh tempo baru: ${newDueDateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`)
+      const dueLabel = updatedTenant?.due_date
+        ? new Date(updatedTenant.due_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+        : '-'
+      notify.success(`Kwitansi ${result.data?.receipt_number} berhasil dibuat! Jatuh tempo baru: ${dueLabel}`)
     } catch (error: any) {
       console.error('Error recording payment:', error)
       notify.error(error.message || 'Gagal mencatat pembayaran.')

@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Home, BedDouble, Users, Receipt, LogOut } from 'lucide-react'
+import { Home, BedDouble, Users, Receipt, FileCheck, LogOut } from 'lucide-react'
 import { useAuth } from '../lib/AuthContext'
 import PageTransition from '../components/PageTransition'
 import logoImg from '../logo.png'
@@ -19,7 +19,9 @@ export function DashboardLayout() {
     { name: 'Kamar', path: '/rooms', icon: <BedDouble className="w-4 h-4 mr-2" /> },
     { name: 'Penghuni', path: '/tenants', icon: <Users className="w-4 h-4 mr-2" /> },
     { name: 'Transaksi', path: '/transactions', icon: <Receipt className="w-4 h-4 mr-2" /> },
+    { name: 'Kwitansi & Invoice', path: '/invoices', icon: <FileCheck className="w-4 h-4 mr-2" /> },
   ]
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">

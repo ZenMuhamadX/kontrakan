@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import Rooms from './pages/Rooms'
 import Tenants from './pages/Tenants'
 import Transactions from './pages/Transactions'
+import Invoices from './pages/Invoices'
 import Login from './pages/Login'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { DialogProvider } from './lib/DialogContext'
@@ -43,6 +44,7 @@ export default function App() {
               <Route path="rooms" element={<Rooms />} />
               <Route path="tenants" element={<Tenants />} />
               <Route path="transactions" element={<Transactions />} />
+              <Route path="invoices" element={<Invoices />} />
             </Route>
           </Routes>
         </BrowserRouter>
@@ -50,3 +52,4 @@ export default function App() {
     </AuthProvider>
   )
 }
+

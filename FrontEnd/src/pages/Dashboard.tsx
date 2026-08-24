@@ -100,7 +100,7 @@ export default function Dashboard() {
       </div>
 
       {/* Main Stats Cards (Row 1: Keuangan & Hunian) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
         {/* Kas Akhir */}
         <div className="bg-linear-to-br from-blue-600 to-blue-700 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
           <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-wider">Kas Akhir</p>
@@ -156,14 +156,14 @@ export default function Dashboard() {
         </div>
 
         {/* Potensi Omset Sewa/Bulan */}
-        <div className="bg-linear-to-br from-amber-500 to-amber-600 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
+        {/* <div className="bg-linear-to-br from-amber-500 to-amber-600 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
           <p className="text-[11px] font-semibold text-amber-100 uppercase tracking-wider">Potensi Omset/Bulan</p>
           <p className="mt-1 text-xl sm:text-2xl font-black tracking-tight">
             Rp {stats.monthlyPotentialRevenue.toLocaleString('id-ID')}
           </p>
           <p className="text-[10px] text-amber-100 mt-1">Kapasitas sewa terisi aktif</p>
           <DollarSign className="absolute -right-2 -bottom-2 w-16 h-16 text-white opacity-15" />
-        </div>
+        </div> */}
       </div>
 
       {/* Operational Highlights: Peringatan Jatuh Tempo & Status Kamar Ringkas */}

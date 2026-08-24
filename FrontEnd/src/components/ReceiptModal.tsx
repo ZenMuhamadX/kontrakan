@@ -104,13 +104,13 @@ function ReceiptContent({ onClose, transaction }: Omit<ReceiptProps, 'isOpen'> &
           <div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
             <h3 className="text-base font-semibold text-gray-900">Kuitansi Pembayaran</h3>
             <div className="flex items-center space-x-2">
-              <button
+              {/* <button
                 onClick={handleDownloadPDF}
                 className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 mr-1.5" />
                 Download PDF
-              </button>
+              </button> */}
               <button
                 onClick={onClose}
                 className="p-1.5 text-gray-400 hover:text-gray-600 rounded-md cursor-pointer"
