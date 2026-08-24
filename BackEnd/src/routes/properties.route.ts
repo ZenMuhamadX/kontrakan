@@ -6,8 +6,10 @@ import {
   updatePropertySchema,
   queryPropertySchema,
 } from '../validators/property.validator'
+import { invalidateDashboardCache } from './dashboard.route'
 
 const propertiesRoute = new Hono()
+
 
 // 1. GET ALL Properties (dengan pagination & search)
 propertiesRoute.get('/', validateQuery(queryPropertySchema), async (c) => {
@@ -88,6 +90,8 @@ propertiesRoute.post('/', validateBody(createPropertySchema), async (c) => {
     return c.json({ success: false, message: error.message }, 500)
   }
 
+  invalidateDashboardCache()
+
   return c.json(
     {
       success: true,
@@ -121,6 +125,8 @@ propertiesRoute.put('/:id', validateBody(updatePropertySchema), async (c) => {
     return c.json({ success: false, message: error.message }, 500)
   }
 
+  invalidateDashboardCache()
+
   return c.json({
     success: true,
     message: 'Property berhasil diperbarui',
@@ -146,6 +152,8 @@ propertiesRoute.delete('/:id', async (c) => {
     return c.json({ success: false, message: error.message }, 500)
   }
 
+  invalidateDashboardCache()
+
   return c.json({
     success: true,
     message: 'Property berhasil dihapus',
@@ -154,3 +162,4 @@ propertiesRoute.delete('/:id', async (c) => {
 })
 
 export default propertiesRoute
+

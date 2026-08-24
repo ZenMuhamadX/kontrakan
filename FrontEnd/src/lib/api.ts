@@ -44,11 +44,21 @@ export const setAuthSession = (data: { user: any; session: any }): void => {
   }
 }
 
+// Client-Side In-Memory Cache & In-Flight Deduplication
+const apiCache = new Map<string, { data: any; timestamp: number }>()
+const inFlightRequests = new Map<string, Promise<any>>()
+const CLIENT_CACHE_TTL_MS = 15 * 1000 // 15 detik
+
+export const clearApiCache = () => {
+  apiCache.clear()
+}
+
 // Universal fetch client
 export async function apiRequest<T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { forceRefresh?: boolean } = {}
 ): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase()
   const token = getToken()
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),
@@ -65,24 +75,61 @@ export async function apiRequest<T = any>(
 
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  })
-
-  const json = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    // Jika 401 Unauthorized, hapus token
-    if (response.status === 401) {
-      removeToken()
+  // 1. Jika method adalah mutation (POST, PUT, DELETE), bersihkan cache agar data selalu sinkron
+  if (method !== 'GET') {
+    clearApiCache()
+  } else if (!options.forceRefresh) {
+    // 2. Cek Cache In-Memory untuk GET
+    const cacheKey = `${url}_${token || ''}`
+    const cached = apiCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS) {
+      return cached.data as T
     }
-    const errorMessage = json.message || json.error || 'Terjadi kesalahan pada server'
-    throw new Error(errorMessage)
+
+    // 3. Deduplikasi request yang sedang in-flight (misal StrictMode / dobel mount)
+    if (inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey)! as Promise<T>
+    }
   }
 
-  return json
+  const cacheKey = `${url}_${token || ''}`
+
+  const fetchPromise = (async () => {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      })
+
+      const json = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        // Jika 401 Unauthorized, hapus token
+        if (response.status === 401) {
+          removeToken()
+        }
+        const errorMessage = json.message || json.error || 'Terjadi kesalahan pada server'
+        throw new Error(errorMessage)
+      }
+
+      // Simpan ke cache jika GET
+      if (method === 'GET') {
+        apiCache.set(cacheKey, { data: json, timestamp: Date.now() })
+      }
+
+      return json as T
+    } finally {
+      inFlightRequests.delete(cacheKey)
+    }
+  })()
+
+  if (method === 'GET' && !options.forceRefresh) {
+    inFlightRequests.set(cacheKey, fetchPromise)
+  }
+
+  return fetchPromise
 }
+
 
 // 1. Auth API
 export const authApi = {
@@ -281,10 +328,35 @@ export const storageApi = {
       body: JSON.stringify({ path }),
     })
   },
+}
 
-  getSignedUrl: async (path: string, expiresIn: number = 3600) => {
-    return apiRequest<{ success: boolean; data: { signedUrl: string; expiresIn: number } }>(
-      `/storage/signed-url?path=${encodeURIComponent(path)}&expiresIn=${expiresIn}`
-    )
+// 6. Dashboard API
+export const dashboardApi = {
+  getStats: async () => {
+    return apiRequest<{
+      success: boolean
+      source?: string
+      data: {
+        stats: {
+          balance: number
+          income: number
+          expense: number
+          monthlyTransactions: number
+          totalRooms: number
+          occupiedRooms: number
+          emptyRooms: number
+          totalTenants: number
+          monthlyPotentialRevenue: number
+          completeDocsCount: number
+          incompleteDocsCount: number
+        }
+        allTransactions: any[]
+        allRooms: any[]
+        allTenants: any[]
+        recentTransactions: any[]
+        dueTenantsList: any[]
+      }
+    }>('/dashboard/stats')
   },
 }
+

@@ -6,8 +6,10 @@ import {
   updateTenantSchema,
   queryTenantSchema,
 } from '../validators/tenant.validator'
+import { invalidateDashboardCache } from './dashboard.route'
 
 const tenantsRoute = new Hono()
+
 
 // 1. GET ALL Tenants (dengan pagination, search & filter property_id)
 tenantsRoute.get('/', validateQuery(queryTenantSchema), async (c) => {
@@ -99,6 +101,8 @@ tenantsRoute.post('/', validateBody(createTenantSchema), async (c) => {
     return c.json({ success: false, message: error.message }, 500)
   }
 
+  invalidateDashboardCache()
+
   return c.json(
     {
       success: true,
@@ -144,6 +148,8 @@ tenantsRoute.put('/:id', validateBody(updateTenantSchema), async (c) => {
     return c.json({ success: false, message: error.message }, 500)
   }
 
+  invalidateDashboardCache()
+
   return c.json({
     success: true,
     message: 'Tenant berhasil diperbarui',
@@ -169,6 +175,8 @@ tenantsRoute.delete('/:id', async (c) => {
     return c.json({ success: false, message: error.message }, 500)
   }
 
+  invalidateDashboardCache()
+
   return c.json({
     success: true,
     message: 'Tenant berhasil dihapus',
@@ -177,3 +185,4 @@ tenantsRoute.delete('/:id', async (c) => {
 })
 
 export default tenantsRoute
+

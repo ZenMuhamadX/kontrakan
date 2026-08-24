@@ -6,8 +6,10 @@ import {
   updateTransactionSchema,
   queryTransactionSchema,
 } from '../validators/transaction.validator'
+import { invalidateDashboardCache } from './dashboard.route'
 
 const transactionsRoute = new Hono()
+
 
 // 1. GET ALL Transactions (dengan filter type, category, date range, pagination)
 transactionsRoute.get('/', validateQuery(queryTransactionSchema), async (c) => {
@@ -98,6 +100,8 @@ transactionsRoute.post('/', validateBody(createTransactionSchema), async (c) => 
     return c.json({ success: false, message: error.message }, 500)
   }
 
+  invalidateDashboardCache()
+
   return c.json(
     {
       success: true,
@@ -131,6 +135,8 @@ transactionsRoute.put('/:id', validateBody(updateTransactionSchema), async (c) =
     return c.json({ success: false, message: error.message }, 500)
   }
 
+  invalidateDashboardCache()
+
   return c.json({
     success: true,
     message: 'Transaksi berhasil diperbarui',
@@ -156,6 +162,8 @@ transactionsRoute.delete('/:id', async (c) => {
     return c.json({ success: false, message: error.message }, 500)
   }
 
+  invalidateDashboardCache()
+
   return c.json({
     success: true,
     message: 'Transaksi berhasil dihapus',
@@ -164,3 +172,4 @@ transactionsRoute.delete('/:id', async (c) => {
 })
 
 export default transactionsRoute
+

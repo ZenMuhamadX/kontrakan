@@ -10,6 +10,7 @@ import propertiesRoute from './routes/properties.route'
 import tenantsRoute from './routes/tenants.route'
 import transactionsRoute from './routes/transactions.route'
 import storageRoute from './routes/storage.route'
+import dashboardRoute from './routes/dashboard.route'
 import { SUPABASE_SCHEMA, STORAGE_BUCKET } from './config/supabase'
 
 const app = new Hono()
@@ -38,6 +39,7 @@ app.get('/', (c) => {
       properties: '/api/properties',
       tenants: '/api/tenants',
       transactions: '/api/transactions',
+      dashboard: '/api/dashboard',
       storage: '/api/storage',
     },
   })
@@ -48,6 +50,7 @@ app.route('/api/auth', authRoute)
 app.route('/api/properties', propertiesRoute)
 app.route('/api/tenants', tenantsRoute)
 app.route('/api/transactions', transactionsRoute)
+app.route('/api/dashboard', dashboardRoute)
 app.route('/api/storage', storageRoute)
 
 // Global 404 & Error Handlers
@@ -60,3 +63,4 @@ export default {
   port,
   fetch: app.fetch,
 }
+

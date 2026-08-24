@@ -16,7 +16,7 @@ import {
   ExternalLink,
   ShieldAlert,
 } from 'lucide-react'
-import { transactionsApi, propertiesApi, tenantsApi } from '../lib/api'
+import { dashboardApi } from '../lib/api'
 import CashflowCharts from '../components/CashflowCharts'
 import FinancialReportModal from '../components/FinancialReportModal'
 import { exportTenantsCSV, exportRoomsCSV } from '../lib/exportUtils'
@@ -43,154 +43,34 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
 
-  // Helper status jatuh tempo sewa
-  const calculateDueStatus = (tenant: any) => {
-    if (!tenant) return null
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    let dueDateObj: Date
-    if (tenant.due_date) {
-      dueDateObj = new Date(tenant.due_date)
-    } else if (tenant.last_paid_date) {
-      const lastPaid = new Date(tenant.last_paid_date)
-      dueDateObj = new Date(lastPaid.getTime() + 30 * 24 * 60 * 60 * 1000)
-    } else if (tenant.start_date) {
-      const start = new Date(tenant.start_date)
-      dueDateObj = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000)
-    } else {
-      return null
-    }
-
-    dueDateObj.setHours(0, 0, 0, 0)
-    const diffMs = dueDateObj.getTime() - today.getTime()
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      const overdueDays = Math.abs(diffDays)
-      return {
-        isDue: true,
-        daysRemaining: diffDays,
-        overdueDays,
-        message: `Menunggak ${overdueDays} hari`,
-        dueDate: dueDateObj,
-      }
-    } else if (diffDays === 0) {
-      return {
-        isDue: true,
-        daysRemaining: 0,
-        overdueDays: 0,
-        message: 'Jatuh tempo hari ini',
-        dueDate: dueDateObj,
-      }
-    } else {
-      return {
-        isDue: false,
-        daysRemaining: diffDays,
-        overdueDays: 0,
-        message: `${diffDays} hari lagi`,
-        dueDate: dueDateObj,
-      }
-    }
-  }
-
   useEffect(() => {
+    let isMounted = true
+
     async function fetchStats() {
       setLoading(true)
       try {
-        const [trxRes, propsRes, tenantsRes] = await Promise.all([
-          transactionsApi.getAll({ limit: 500 }),
-          propertiesApi.getAll({ limit: 200 }),
-          tenantsApi.getAll({ limit: 200 }),
-        ])
-
-        const data = trxRes.data || []
-        const rooms = propsRes.data || []
-        const tenants = tenantsRes.data || []
-
-        setAllTransactions(data)
-        setAllRooms(rooms)
-        setAllTenants(tenants)
-
-        let income = 0
-        let expense = 0
-        let monthly = 0
-        const currentMonth = new Date().getMonth()
-        const currentYear = new Date().getFullYear()
-
-        data.forEach((t) => {
-          const amt = Number(t.amount) || 0
-          if (t.type === 'income' || t.type === 'pemasukan') income += amt
-          if (t.type === 'expense' || t.type === 'pengeluaran') expense += amt
-
-          if (t.transaction_date) {
-            const tDate = new Date(t.transaction_date)
-            if (tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear) {
-              monthly++
-            }
-          }
-        })
-
-        const occupied = rooms.filter(
-          (r: any) => r.status === 'occupied' || r.status === 'terisi'
-        ).length
-        const empty = rooms.length - occupied
-
-        // Hitung potensi omset dari seluruh kamar terisi
-        let potentialRevenue = 0
-        rooms.forEach((r: any) => {
-          if (r.status === 'occupied' || r.status === 'terisi') {
-            potentialRevenue += Number(r.price) || 0
-          }
-        })
-
-        // Hitung kelengkapan dokumen & filter daftar tagihan jatuh tempo
-        let completeDocs = 0
-        let incompleteDocs = 0
-        const dueList: any[] = []
-
-        tenants.forEach((tenant: any) => {
-          if (tenant.ktp_url && tenant.kk_url) {
-            completeDocs++
-          } else {
-            incompleteDocs++
-          }
-
-          const dueInfo = calculateDueStatus(tenant)
-          if (dueInfo && (dueInfo.isDue || dueInfo.daysRemaining <= 7)) {
-            dueList.push({
-              ...tenant,
-              dueInfo,
-            })
-          }
-        })
-
-        // Urutkan yang paling menunggak di urutan teratas
-        dueList.sort((a, b) => a.dueInfo.daysRemaining - b.dueInfo.daysRemaining)
-        setDueTenantsList(dueList)
-
-        setStats({
-          balance: income - expense,
-          income,
-          expense,
-          monthlyTransactions: monthly,
-          totalRooms: rooms.length,
-          occupiedRooms: occupied,
-          emptyRooms: empty > 0 ? empty : 0,
-          totalTenants: tenants.length,
-          monthlyPotentialRevenue: potentialRevenue,
-          completeDocsCount: completeDocs,
-          incompleteDocsCount: incompleteDocs,
-        })
-        setRecentTransactions(data.slice(0, 5))
+        // Single optimized endpoint call
+        const res = await dashboardApi.getStats()
+        if (isMounted && res.data) {
+          setStats(res.data.stats)
+          setAllTransactions(res.data.allTransactions || [])
+          setAllRooms(res.data.allRooms || [])
+          setAllTenants(res.data.allTenants || [])
+          setRecentTransactions(res.data.recentTransactions || [])
+          setDueTenantsList(res.data.dueTenantsList || [])
+        }
       } catch (err) {
         console.error('Failed to fetch dashboard stats:', err)
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
 
     fetchStats()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const occupancyRate =
@@ -220,9 +100,9 @@ export default function Dashboard() {
       </div>
 
       {/* Main Stats Cards (Row 1: Keuangan & Hunian) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {/* Kas Akhir */}
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
+        <div className="bg-linear-to-br from-blue-600 to-blue-700 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
           <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-wider">Kas Akhir</p>
           <p className="mt-1 text-xl sm:text-2xl font-black tracking-tight">
             Rp {stats.balance.toLocaleString('id-ID')}
@@ -232,7 +112,7 @@ export default function Dashboard() {
         </div>
 
         {/* Total Pemasukan */}
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
+        <div className="bg-linear-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
           <p className="text-[11px] font-semibold text-emerald-100 uppercase tracking-wider">Total Pemasukan</p>
           <p className="mt-1 text-xl sm:text-2xl font-black tracking-tight">
             Rp {stats.income.toLocaleString('id-ID')}
@@ -242,7 +122,7 @@ export default function Dashboard() {
         </div>
 
         {/* Total Pengeluaran */}
-        <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
+        <div className="bg-linear-to-br from-rose-500 to-rose-600 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
           <p className="text-[11px] font-semibold text-rose-100 uppercase tracking-wider">Total Pengeluaran</p>
           <p className="mt-1 text-xl sm:text-2xl font-black tracking-tight">
             Rp {stats.expense.toLocaleString('id-ID')}
@@ -275,15 +155,15 @@ export default function Dashboard() {
           <Users className="absolute -right-2 -bottom-2 w-16 h-16 text-white opacity-15" />
         </div>
 
-        {/* Potensi Omset Sewa/Bulan
-        <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
+        {/* Potensi Omset Sewa/Bulan */}
+        <div className="bg-linear-to-br from-amber-500 to-amber-600 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
           <p className="text-[11px] font-semibold text-amber-100 uppercase tracking-wider">Potensi Omset/Bulan</p>
           <p className="mt-1 text-xl sm:text-2xl font-black tracking-tight">
             Rp {stats.monthlyPotentialRevenue.toLocaleString('id-ID')}
           </p>
           <p className="text-[10px] text-amber-100 mt-1">Kapasitas sewa terisi aktif</p>
           <DollarSign className="absolute -right-2 -bottom-2 w-16 h-16 text-white opacity-15" />
-        </div> */}
+        </div>
       </div>
 
       {/* Operational Highlights: Peringatan Jatuh Tempo & Status Kamar Ringkas */}
