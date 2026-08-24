@@ -188,8 +188,8 @@ export default function Transactions() {
           </select>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Desktop Table (md and above) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -283,6 +283,66 @@ export default function Transactions() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card List (below md) */}
+        <div className="block md:hidden divide-y divide-gray-100">
+          {loading ? (
+            <div className="p-8 text-center text-xs text-gray-500">Memuat data transaksi...</div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="p-8 text-center text-xs text-gray-500">Belum ada transaksi tercatat.</div>
+          ) : (
+            filteredTransactions.map((trx) => {
+              const isIncome = trx.type === 'income' || trx.type === 'pemasukan'
+              const trxCode = getTrxCode(trx)
+              const cleanDesc = (trx.description || '-').replace(/\s*\(TRX-[A-Z0-9]+\)/i, '')
+
+              return (
+                <div key={trx.id} className="p-4 space-y-3 hover:bg-blue-50/20 transition-colors">
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="font-mono font-bold text-xs text-gray-800 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                      {trxCode}
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-medium">
+                      {new Date(trx.transaction_date).toLocaleDateString('id-ID', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          isIncome ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {trx.category}
+                      </span>
+                      <p className="text-xs text-gray-700 font-medium mt-1 line-clamp-1">{cleanDesc}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-black ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {isIncome ? '+ ' : '- '}Rp {Number(trx.amount).toLocaleString('id-ID')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100 flex justify-end">
+                    <button
+                      onClick={() => setSelectedTrx(trx)}
+                      className="w-full py-2 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-2xs"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Lihat Rincian Detail
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
 

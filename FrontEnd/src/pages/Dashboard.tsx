@@ -100,7 +100,7 @@ export default function Dashboard() {
       </div>
 
       {/* Main Stats Cards (Row 1: Keuangan & Hunian) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {/* Kas Akhir */}
         <div className="bg-linear-to-br from-blue-600 to-blue-700 rounded-xl shadow-xs overflow-hidden relative cursor-default p-4 text-white">
           <p className="text-[11px] font-semibold text-blue-100 uppercase tracking-wider">Kas Akhir</p>

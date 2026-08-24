@@ -336,9 +336,10 @@ export default function Invoices() {
         </div>
       </div>
 
-      {/* Tabel Bukti Pembayaran / Kwitansi */}
+      {/* Container Bukti Pembayaran / Kwitansi */}
       <div className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table (Visible on md and above) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-xs">
             <thead className="bg-gray-50/80 text-gray-500 font-bold uppercase tracking-wider">
               <tr>
@@ -376,7 +377,6 @@ export default function Invoices() {
                     ? p.tenants.phone.replace(/^0/, '62').replace(/[^0-9]/g, '')
                     : ''
 
-                  // Ekstrak TRX Code dari relasi transaksi jika ada
                   const matchedTrxCode = (p.transactions?.description || '').match(/TRX-[A-Z0-9]{8,16}/i)?.[0] 
                     || (p.transaction_id ? `TRX-${p.transaction_id.replace(/[^a-zA-Z0-9]/g, '').slice(-12).toUpperCase()}` : null)
 
@@ -486,7 +486,122 @@ export default function Invoices() {
                 })
               )}
             </tbody>
-            </table>
+          </table>
+        </div>
+
+        {/* Mobile Card List (Visible on screens below md) */}
+        <div className="block md:hidden divide-y divide-gray-100">
+          {loading ? (
+            <div className="p-8 text-center text-xs text-gray-400">Memuat data bukti pembayaran...</div>
+          ) : filteredPayments.length === 0 ? (
+            <div className="p-8 text-center text-xs text-gray-400">Belum ada riwayat bukti pembayaran.</div>
+          ) : (
+            filteredPayments.map((p) => {
+              const paidDate = new Date(p.paid_at || p.created_at).toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })
+              const tenantName = p.tenants?.full_name || 'Penghuni'
+              const unitName = p.properties?.unit_name || 'Kamar'
+              const cleanPhone = p.tenants?.phone
+                ? p.tenants.phone.replace(/^0/, '62').replace(/[^0-9]/g, '')
+                : ''
+
+              const matchedTrxCode = (p.transactions?.description || '').match(/TRX-[A-Z0-9]{8,16}/i)?.[0] 
+                || (p.transaction_id ? `TRX-${p.transaction_id.replace(/[^a-zA-Z0-9]/g, '').slice(-12).toUpperCase()}` : null)
+
+              const waReceiptMessage = encodeURIComponent(
+                `*BUKTI PEMBAYARAN DIGITAL AL-ARIEF*\n\n` +
+                  `No. Kwitansi: ${p.receipt_number}\n` +
+                  (matchedTrxCode ? `ID Transaksi Kas: ${matchedTrxCode}\n` : '') +
+                  `Nama: ${tenantName}\n` +
+                  `Unit/Kamar: ${unitName}\n` +
+                  `Jumlah Bayar: Rp ${Number(p.amount_paid).toLocaleString('id-ID')}\n` +
+                  `Metode: ${p.payment_method?.toUpperCase()}\n` +
+                  `Tanggal: ${paidDate}\n` +
+                  `Status: LUNAS / SAH\n\n` +
+                  `Terima kasih telah melakukan pembayaran sewa tepat waktu!`
+              )
+
+              return (
+                <div key={p.id} className="p-4 space-y-3 hover:bg-blue-50/20 transition-colors">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-xs border border-blue-100">
+                        {p.receipt_number}
+                      </span>
+                      {matchedTrxCode && (
+                        <span className="ml-1.5 font-mono text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                          {matchedTrxCode}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-gray-400 font-medium">{paidDate}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">{tenantName}</p>
+                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                        {unitName}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-emerald-600">
+                        Rp {Number(p.amount_paid).toLocaleString('id-ID')}
+                      </p>
+                      <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-gray-100 text-gray-700">
+                        {p.payment_method || 'CASH'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {p.notes && (
+                    <p className="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                      {p.notes}
+                    </p>
+                  )}
+
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <button
+                        onClick={() => {
+                          setSelectedPayment(p)
+                          setIsInvoiceModalOpen(true)
+                        }}
+                        className="flex-1 py-2 px-3 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        Cetak
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenVerifyModal(p.receipt_number)}
+                        className="flex-1 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Verifikasi
+                      </button>
+                    </div>
+
+                    {cleanPhone && (
+                      <a
+                        href={`https://wa.me/${cleanPhone}?text=${waReceiptMessage}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg shrink-0"
+                        title="Kirim ke WhatsApp"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
 
