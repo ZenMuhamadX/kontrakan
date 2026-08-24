@@ -76,13 +76,13 @@ paymentsRoute.get('/verify/:code', async (c) => {
       )
     }
 
-    const isValidHash = verifyHashId(rawCode, payment.paid_at, payment.tenant_id)
+    const isValidHash = verifyHashId(rawCode, payment.paid_at, payment.tenant_id, payment.amount_paid)
 
     return c.json({
       is_valid: isValidHash,
       message: isValidHash
         ? 'Bukti pembayaran kwitansi sah & terverifikasi asli oleh sistem.'
-        : 'Peringatan: Nomor kwitansi ditemukan tetapi hash keaslian tidak cocok (diduga manipulasi data).',
+        : 'Peringatan: Nomor kwitansi ditemukan tetapi hash keaslian tidak cocok (diduga nominal atau data telah dimanipulasi).',
       code: rawCode,
       type: 'KWX',
       data: {
@@ -96,7 +96,7 @@ paymentsRoute.get('/verify/:code', async (c) => {
         payment_method: payment.payment_method,
         paid_at: payment.paid_at,
         notes: payment.notes,
-        status: 'LUNAS / SAH',
+        status: isValidHash ? 'LUNAS / SAH' : 'TIDAK VALID / DIMANIPULASI',
         hash_verified: isValidHash,
       },
     })
@@ -104,20 +104,41 @@ paymentsRoute.get('/verify/:code', async (c) => {
 
   // B. Jika kode Transaksi (TRX-...)
   if (rawCode.startsWith('TRX')) {
-    // Cari transaksi yang mencantumkan kode TRX pada deskripsi
-    const { data: transactions, error: trxError } = await supabase
+    // 1. Cari transaksi yang mencantumkan kode TRX pada deskripsi
+    let { data: transactions } = await supabase
       .from('transactions')
       .select('*')
       .ilike('description', `%${rawCode}%`)
       .limit(1)
 
-    const transaction = transactions && transactions.length > 0 ? transactions[0] : null
+    let transaction = transactions && transactions.length > 0 ? transactions[0] : null
 
-    if (trxError || !transaction) {
+    // 2. Jika belum ditemukan di deskripsi, cari pencocokan berdasarkan ID / Suffix UUID
+    if (!transaction) {
+      const cleanSuffix = rawCode.replace(/^TRX-/, '').toLowerCase()
+      const { data: allTrx } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('transaction_date', { ascending: false })
+        .limit(200)
+
+      transaction =
+        (allTrx || []).find((t: any) => {
+          if (!t.id) return false
+          const tClean = t.id.replace(/[^a-zA-Z0-9]/g, '').slice(-12).toLowerCase()
+          return (
+            t.id.toLowerCase() === rawCode.toLowerCase() ||
+            tClean === cleanSuffix ||
+            (t.description || '').toLowerCase().includes(rawCode.toLowerCase())
+          )
+        }) || null
+    }
+
+    if (!transaction) {
       return c.json(
         {
           is_valid: false,
-          message: 'Transaksi dengan kode tersebut tidak ditemukan dalam database.',
+          message: 'Transaksi dengan ID tersebut tidak ditemukan dalam database arus kas.',
           code: rawCode,
           type: 'TRX',
         },
@@ -125,35 +146,41 @@ paymentsRoute.get('/verify/:code', async (c) => {
       )
     }
 
-    // Lookup payment yang berelasi dengan transaksi ini
+    // 3. Lookup data payment terkait jika transaksi ini berhubungan dengan sewa
     const { data: payment } = await supabase
       .from('payments')
       .select('*, tenants(id, full_name, phone), properties(id, unit_name, price)')
       .eq('transaction_id', transaction.id)
       .single()
 
-    let isValidHash = false
+    // Validasi hash jika ini transaksi sewa yang digenerate dengan tenant
+    let isValidHash = true
     if (payment) {
-      isValidHash = verifyHashId(rawCode, payment.paid_at, payment.tenant_id)
+      isValidHash = verifyHashId(rawCode, payment.paid_at, payment.tenant_id, transaction.amount)
     }
+
+    const isIncome = transaction.type === 'income' || transaction.type === 'pemasukan'
+    const typeLabel = isIncome ? 'Pemasukan' : 'Pengeluaran'
 
     return c.json({
       is_valid: isValidHash,
       message: isValidHash
-        ? 'Transaksi kas masuk sah & terverifikasi asli oleh sistem.'
-        : 'Data transaksi ditemukan, namun hash keaslian tidak sesuai.',
+        ? `Transaksi ${typeLabel} (${transaction.category}) sah & resmi tercatat di Buku Kas Al-Arief.`
+        : `Peringatan: Transaksi ${typeLabel} ditemukan namun nominal atau data telah diubah dari rekaman aslinya.`,
       code: rawCode,
       type: 'TRX',
       data: {
         transaction_id: transaction.id,
         transaction_code: rawCode,
-        receipt_number: payment?.receipt_number,
-        tenant_name: payment?.tenants?.full_name,
-        unit_name: payment?.properties?.unit_name,
+        category: transaction.category,
+        transaction_type: typeLabel,
         amount: transaction.amount,
         transaction_date: transaction.transaction_date,
-        description: transaction.description,
-        status: 'TERCATAT DI KAS',
+        description: (transaction.description || '').replace(/\s*\(TRX-[A-Z0-9]+\)/i, '') || transaction.category,
+        receipt_number: payment?.receipt_number || null,
+        tenant_name: payment?.tenants?.full_name || null,
+        unit_name: payment?.properties?.unit_name || null,
+        status: isValidHash ? 'TERCATAT DI BUKU KAS' : 'DATA TIDAK SESUAI HASH',
         hash_verified: isValidHash,
       },
     })
@@ -211,9 +238,9 @@ paymentsRoute.post('/manual-pay', validateBody(manualPaySchema), async (c) => {
   const paidDate = paid_at ? new Date(paid_at) : new Date()
   const paidDateStr = paidDate.toISOString().split('T')[0]
 
-  // 2. Generate Hash ID Standard (KWX dan TRX dengan 12-digit hash keaslian)
-  const kwxCode = generateHashId('KWX', paidDate, tenant.id)
-  const trxCode = generateHashId('TRX', paidDate, tenant.id)
+  // 2. Generate Hash ID Standard (KWX dan TRX dengan 12-digit hash keaslian kriptografis bound ke nominal amount)
+  const kwxCode = generateHashId('KWX', paidDate, tenant.id, amount)
+  const trxCode = generateHashId('TRX', paidDate, tenant.id, amount)
 
   // 3. Catat Kas Masuk ke kontrakan.transactions
   const transactionDescription = `Pembayaran Sewa Kamar ${tenant.properties?.unit_name || ''} - ${tenant.full_name} (${trxCode})`

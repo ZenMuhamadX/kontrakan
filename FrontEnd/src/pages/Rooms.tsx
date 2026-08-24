@@ -254,16 +254,16 @@ export default function Rooms() {
         due_date: initialDueDate,
       })
 
-      // Otomatis catat transaksi sewa awal jika ada harga
-      if (selectedProperty.price) {
-        await transactionsApi.create({
-          type: 'income',
-          category: 'Sewa Bulanan',
-          amount: Number(selectedProperty.price),
-          description: `Pembayaran sewa awal 1 bulan ${selectedProperty.unit_name} - ${form.full_name}`,
-          transaction_date: form.start_date,
-        }).catch((err) => console.log('Auto initial transaction note:', err))
-      }
+      // // Otomatis catat transaksi sewa awal jika ada harga
+      // if (selectedProperty.price) {
+      //   await .create({
+      //     type: 'income',
+      //     category: 'Sewa Bulanan',
+      //     amount: Number(selectedProperty.price),
+      //     description: `Pembayaran sewa awal 1 bulan ${selectedProperty.unit_name} - ${form.full_name}`,
+      //     transaction_date: form.start_date,
+      //   }).catch((err) => console.log('Auto initial transaction note:', err))
+      // }
 
       await propertiesApi.update(selectedProperty.id, { status: 'occupied' })
 

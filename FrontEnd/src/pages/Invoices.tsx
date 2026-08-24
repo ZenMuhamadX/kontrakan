@@ -13,6 +13,10 @@ import {
   DollarSign,
   X,
   FileText,
+  ShieldCheck,
+  AlertTriangle,
+  Receipt,
+  ArrowRight,
 } from 'lucide-react'
 import { paymentsApi, tenantsApi } from '../lib/api'
 import { useDialog } from '../lib/DialogContext'
@@ -29,6 +33,12 @@ export default function Invoices() {
   // Modal Kwitansi Detail
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null)
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false)
+
+  // Modal Verifikasi Keaslian
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false)
+  const [verifyCode, setVerifyCode] = useState('')
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [verifyResult, setVerifyResult] = useState<any | null>(null)
 
   // Modal Input Pembayaran Manual
   const [isManualPayModalOpen, setIsManualPayModalOpen] = useState(false)
@@ -59,6 +69,35 @@ export default function Invoices() {
       console.error('Error fetching payments data:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Handle Verifikasi Keaslian Hash Kwitansi / TRX
+  const handleOpenVerifyModal = (code?: string) => {
+    const targetCode = code || ''
+    setVerifyCode(targetCode)
+    setVerifyResult(null)
+    setIsVerifyModalOpen(true)
+    if (targetCode.trim()) {
+      runVerification(targetCode.trim())
+    }
+  }
+
+  const runVerification = async (codeToVerify: string) => {
+    if (!codeToVerify.trim()) return
+    setIsVerifying(true)
+    setVerifyResult(null)
+    try {
+      const res = await paymentsApi.verify(codeToVerify.trim())
+      setVerifyResult(res)
+    } catch (err: any) {
+      setVerifyResult({
+        is_valid: false,
+        message: err.message || 'Kode tidak ditemukan atau tidak valid.',
+        code: codeToVerify,
+      })
+    } finally {
+      setIsVerifying(false)
     }
   }
 
@@ -170,7 +209,8 @@ export default function Invoices() {
     const matchTenant = (p.tenants?.full_name || '').toLowerCase().includes(term)
     const matchRoom = (p.properties?.unit_name || '').toLowerCase().includes(term)
     const matchNotes = (p.notes || '').toLowerCase().includes(term)
-    const matchText = matchReceipt || matchTenant || matchRoom || matchNotes
+    const matchTrx = (p.transactions?.description || '').toLowerCase().includes(term)
+    const matchText = matchReceipt || matchTenant || matchRoom || matchNotes || matchTrx
 
     if (selectedMethod === 'ALL') return matchText
     return matchText && (p.payment_method || '').toLowerCase() === selectedMethod.toLowerCase()
@@ -196,17 +236,27 @@ export default function Invoices() {
             Bukti Pembayaran & Kwitansi
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">
-            Daftar seluruh invoice digital, kwitansi sewa resmi, dan verifikasi status pembayaran penghuni.
+            Daftar kwitansi resmi (KWX) berelasi dengan ID Transaksi Kas (TRX) & fitur verifikasi keaslian hash.
           </p>
         </div>
 
-        <button
-          onClick={() => setIsManualPayModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          Catat Pembayaran Baru
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => handleOpenVerifyModal()}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
+            title="Verifikasi keaslian hash kode KWX / TRX"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            Verifikasi Keaslian
+          </button>
+          <button
+            onClick={() => setIsManualPayModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Catat Pembayaran Baru
+          </button>
+        </div>
       </div>
 
       {/* Summary KPI Cards */}
@@ -255,7 +305,7 @@ export default function Invoices() {
           <Search className="h-4 w-4 text-gray-400 absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Cari No. Kwitansi, nama penghuni, kamar, atau catatan..."
+            placeholder="Cari No. Kwitansi, ID TRX, nama penghuni, kamar..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 pr-4 py-2 w-full text-xs rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -292,7 +342,7 @@ export default function Invoices() {
           <table className="min-w-full divide-y divide-gray-200 text-xs">
             <thead className="bg-gray-50/80 text-gray-500 font-bold uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-3.5 text-left">No. Kwitansi</th>
+                <th className="px-6 py-3.5 text-left">No. Kwitansi & TRX ID</th>
                 <th className="px-6 py-3.5 text-left">Penghuni & Kamar</th>
                 <th className="px-6 py-3.5 text-left">Nominal Bayar</th>
                 <th className="px-6 py-3.5 text-left">Metode</th>
@@ -326,24 +376,36 @@ export default function Invoices() {
                     ? p.tenants.phone.replace(/^0/, '62').replace(/[^0-9]/g, '')
                     : ''
 
+                  // Ekstrak TRX Code dari relasi transaksi jika ada
+                  const matchedTrxCode = (p.transactions?.description || '').match(/TRX-[A-Z0-9]{8,16}/i)?.[0] 
+                    || (p.transaction_id ? `TRX-${p.transaction_id.replace(/[^a-zA-Z0-9]/g, '').slice(-12).toUpperCase()}` : null)
+
                   const waReceiptMessage = encodeURIComponent(
                     `*BUKTI PEMBAYARAN DIGITAL AL-ARIEF*\n\n` +
                       `No. Kwitansi: ${p.receipt_number}\n` +
+                      (matchedTrxCode ? `ID Transaksi Kas: ${matchedTrxCode}\n` : '') +
                       `Nama: ${tenantName}\n` +
                       `Unit/Kamar: ${unitName}\n` +
                       `Jumlah Bayar: Rp ${Number(p.amount_paid).toLocaleString('id-ID')}\n` +
                       `Metode: ${p.payment_method?.toUpperCase()}\n` +
                       `Tanggal: ${paidDate}\n` +
-                      `Status: LUNAS / TERVERIFIKASI\n\n` +
+                      `Status: LUNAS / SAH\n\n` +
                       `Terima kasih telah melakukan pembayaran sewa tepat waktu!`
                   )
 
                   return (
                     <tr key={p.id} className="hover:bg-blue-50/40 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
-                          {p.receipt_number}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-100 text-xs">
+                            {p.receipt_number}
+                          </span>
+                          {matchedTrxCode && (
+                            <span className="font-mono text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                              Kas: {matchedTrxCode}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -390,11 +452,20 @@ export default function Invoices() {
                               setSelectedPayment(p)
                               setIsInvoiceModalOpen(true)
                             }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
                             title="Lihat & Cetak Kwitansi"
                           >
                             <Printer className="w-3.5 h-3.5" />
-                            Cetak Kwitansi
+                            Cetak
+                          </button>
+
+                          <button
+                            onClick={() => handleOpenVerifyModal(p.receipt_number)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-700 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+                            title="Verifikasi Keaslian Hash Kwitansi"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            Verifikasi
                           </button>
 
                           {cleanPhone && (
@@ -415,7 +486,7 @@ export default function Invoices() {
                 })
               )}
             </tbody>
-          </table>
+            </table>
         </div>
       </div>
 
@@ -693,6 +764,163 @@ export default function Invoices() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+
+      {/* Modal Verifikasi Keaslian Hash Kwitansi & Transaksi */}
+      {isVerifyModalOpen && createPortal(
+        <>
+          <div
+            className="fixed inset-0 bg-black/70"
+            style={{ zIndex: 9998 }}
+            onClick={() => setIsVerifyModalOpen(false)}
+          />
+          <div
+            className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
+            style={{ zIndex: 9999 }}
+          >
+            <div className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl p-6 pointer-events-auto">
+              <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <h3 className="text-base font-bold text-gray-900">Verifikasi Keaslian Kwitansi / Transaksi</h3>
+                </div>
+                <button
+                  onClick={() => setIsVerifyModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Input Form Cek Kode */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Masukkan Kode Kwitansi (KWX-...) atau Transaksi (TRX-...)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Contoh: KWX-C6F44DBC0BD9"
+                      value={verifyCode}
+                      onChange={(e) => setVerifyCode(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => e.key === 'Enter' && runVerification(verifyCode)}
+                      className="flex-1 text-xs font-mono font-bold rounded-lg border border-gray-300 px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none uppercase"
+                    />
+                    <button
+                      onClick={() => runVerification(verifyCode)}
+                      disabled={isVerifying || !verifyCode.trim()}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {isVerifying ? 'Memverifikasi...' : 'Cek Keaslian'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Sistem akan mencocokkan signature SHA-256 12-digit dengan database resmi Al-Arief.
+                  </p>
+                </div>
+
+                {/* Hasil Verifikasi */}
+                {verifyResult && (
+                  <div className="mt-4 space-y-3.5 animate-fadeIn">
+                    {verifyResult.is_valid ? (
+                      <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <CheckCircle2 className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-emerald-900 uppercase tracking-wide">
+                              TERVERIFIKASI SAH & ASLI
+                            </p>
+                            <p className="text-[11px] text-emerald-700 mt-0.5">
+                              {verifyResult.message}
+                            </p>
+                          </div>
+                        </div>
+
+                        {verifyResult.data && (
+                          <div className="mt-3.5 pt-3 border-t border-emerald-200/60 divide-y divide-emerald-100 text-xs">
+                            {verifyResult.data.receipt_number && (
+                              <div className="flex justify-between py-1.5">
+                                <span className="text-gray-600">Nomor Kwitansi</span>
+                                <span className="font-mono font-bold text-gray-900">{verifyResult.data.receipt_number}</span>
+                              </div>
+                            )}
+                            {verifyResult.data.transaction_code && (
+                              <div className="flex justify-between py-1.5">
+                                <span className="text-gray-600">ID Transaksi Kas</span>
+                                <span className="font-mono font-bold text-gray-900">{verifyResult.data.transaction_code}</span>
+                              </div>
+                            )}
+                            {verifyResult.data.tenant_name && (
+                              <div className="flex justify-between py-1.5">
+                                <span className="text-gray-600">Nama Penghuni</span>
+                                <span className="font-bold text-gray-900">{verifyResult.data.tenant_name}</span>
+                              </div>
+                            )}
+                            {verifyResult.data.unit_name && (
+                              <div className="flex justify-between py-1.5">
+                                <span className="text-gray-600">Unit / Kamar</span>
+                                <span className="font-bold text-gray-900">{verifyResult.data.unit_name}</span>
+                              </div>
+                            )}
+                            {verifyResult.data.amount && (
+                              <div className="flex justify-between py-1.5">
+                                <span className="text-gray-600">Nominal Terbayar</span>
+                                <span className="font-black text-emerald-700">
+                                  Rp {Number(verifyResult.data.amount).toLocaleString('id-ID')}
+                                </span>
+                              </div>
+                            )}
+                            {verifyResult.data.paid_at && (
+                              <div className="flex justify-between py-1.5">
+                                <span className="text-gray-600">Tanggal Bayar</span>
+                                <span className="font-medium text-gray-800">
+                                  {new Date(verifyResult.data.paid_at).toLocaleDateString('id-ID', {
+                                    day: '2-digit',
+                                    month: 'long',
+                                    year: 'numeric',
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-rose-50 border border-rose-200">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <AlertTriangle className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-rose-900 uppercase tracking-wide">
+                              TIDAK VALID / TIDAK DITEMUKAN
+                            </p>
+                            <p className="text-[11px] text-rose-700 mt-0.5">
+                              {verifyResult.message}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-gray-100 flex justify-end">
+                  <button
+                    onClick={() => setIsVerifyModalOpen(false)}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-semibold cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </>,

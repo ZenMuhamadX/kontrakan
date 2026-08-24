@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { transactionsApi } from '../lib/api'
-import { Plus, X, Search, Printer, Download, FileText } from 'lucide-react'
-import ReceiptModal from '../components/ReceiptModal'
+import { Plus, X, Search, Download, FileText, Eye, CheckCircle2, ArrowDownLeft, ArrowUpRight, ShieldCheck } from 'lucide-react'
 import FinancialReportModal from '../components/FinancialReportModal'
 import { exportTransactionsCSV } from '../lib/exportUtils'
 import { useDialog } from '../lib/DialogContext'
@@ -15,16 +15,31 @@ type Transaction = {
   transaction_date: string
 }
 
+// Helper untuk mengekstrak atau generate TRX Code
+export function getTrxCode(trx: Transaction): string {
+  if (!trx) return '-'
+  // 1. Cek apakah ada format (TRX-...) di deskripsi
+  const match = (trx.description || '').match(/TRX-[A-Z0-9]{8,16}/i)
+  if (match) return match[0].toUpperCase()
+
+  // 2. Format fallback dari UUID ID
+  if (trx.id) {
+    const clean = trx.id.replace(/[^a-zA-Z0-9]/g, '').slice(-12).toUpperCase()
+    return `TRX-${clean}`
+  }
+  return `TRX-${Math.random().toString(36).substring(2, 14).toUpperCase()}`
+}
+
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const { notify } = useDialog()
 
-  // Receipt Modal state
-  const [selectedReceipt, setSelectedReceipt] = useState<Transaction | null>(null)
+  // Detail Modal state
+  const [selectedTrx, setSelectedTrx] = useState<Transaction | null>(null)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
 
-  // Modal
+  // Modal Input
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -64,11 +79,20 @@ export default function Transactions() {
 
     try {
       const trxDate = form.transaction_date || new Date().toISOString().split('T')[0]
+      // Buat custom TRX Code untuk transaksi manual
+      const yyyymmdd = trxDate!.replace(/-/g, '')
+      const randSuffix = Math.random().toString(36).substring(2, 8).toUpperCase() + Math.random().toString(36).substring(2, 8).toUpperCase()
+      const manualTrxCode = `TRX-${randSuffix.slice(0, 12)}`
+
+      const fullDescription = form.description 
+        ? `${form.description} (${manualTrxCode})` 
+        : `${form.category} (${manualTrxCode})`
+
       await transactionsApi.create({
         type: form.type,
         category: form.category,
         amount: Number(form.amount),
-        description: form.description || undefined,
+        description: fullDescription,
         transaction_date: trxDate,
       })
 
@@ -80,7 +104,7 @@ export default function Transactions() {
         description: '',
         transaction_date: new Date().toISOString().split('T')[0],
       })
-      notify.success('Transaksi berhasil dicatat!')
+      notify.success('Transaksi kas berhasil dicatat!')
       fetchTransactions()
     } catch (error: any) {
       console.error('Error:', error)
@@ -94,9 +118,11 @@ export default function Transactions() {
   const [filterType, setFilterType] = useState('')
 
   const filteredTransactions = transactions.filter((trx) => {
+    const trxCode = getTrxCode(trx)
     const matchesSearch =
       trx.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trx.category?.toLowerCase().includes(searchTerm.toLowerCase())
+      trx.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      trxCode.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesType = filterType ? trx.type === filterType : true
     return matchesSearch && matchesType
   })
@@ -106,7 +132,7 @@ export default function Transactions() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Arus Kas & Transaksi</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Catatan seluruh pemasukan dan pengeluaran kontrakan.</p>
+          <p className="text-xs text-gray-500 mt-0.5">Catatan seluruh pemasukan dan pengeluaran kontrakan dengan ID Transaksi standar.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -144,15 +170,15 @@ export default function Transactions() {
             </div>
             <input
               type="text"
-              placeholder="Cari keterangan atau kategori..."
-              className="pl-9 block w-full rounded-md border-gray-300 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm h-9 border transition-all"
+              placeholder="Cari ID TRX, keterangan, atau kategori..."
+              className="pl-9 block w-full rounded-md border-gray-300 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-xs h-9 border transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
           <select
-            className="block w-40 rounded-md border-gray-300 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm h-9 border px-3 transition-all cursor-pointer"
+            className="block w-40 rounded-md border-gray-300 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-xs h-9 border px-3 transition-all cursor-pointer"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
@@ -165,24 +191,27 @@ export default function Transactions() {
         {/* Table */}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-white">
+            <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  ID Transaksi
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                   Tanggal
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                   Kategori
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                   Keterangan
                 </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
                   Pemasukan
                 </th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">
                   Pengeluaran
                 </th>
-                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">
                   Aksi
                 </th>
               </tr>
@@ -190,55 +219,63 @@ export default function Transactions() {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                    Memuat data...
+                  <td colSpan={7} className="px-6 py-8 text-center text-xs text-gray-500">
+                    Memuat data transaksi...
                   </td>
                 </tr>
               ) : filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-500">
-                    Belum ada transaksi.
+                  <td colSpan={7} className="px-6 py-8 text-center text-xs text-gray-500">
+                    Belum ada transaksi tercatat.
                   </td>
                 </tr>
               ) : (
                 filteredTransactions.map((trx) => {
                   const isIncome = trx.type === 'income' || trx.type === 'pemasukan'
+                  const trxCode = getTrxCode(trx)
+                  const cleanDesc = (trx.description || '-').replace(/\s*\(TRX-[A-Z0-9]+\)/i, '')
+
                   return (
-                    <tr key={trx.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <tr key={trx.id} className="hover:bg-blue-50/30 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="font-mono font-bold text-xs text-gray-800 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200">
+                          {trxCode}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-900 font-medium">
                         {new Date(trx.transaction_date).toLocaleDateString('id-ID', {
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric',
                         })}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            isIncome ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                            isIncome ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                           }`}
                         >
                           {trx.category}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{trx.description || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-green-600">
+                      <td className="px-6 py-4 text-xs text-gray-800 max-w-xs truncate" title={trx.description}>
+                        {cleanDesc}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-right font-bold text-emerald-600">
                         {isIncome ? `+ Rp ${Number(trx.amount).toLocaleString('id-ID')}` : '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-red-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-right font-bold text-rose-600">
                         {!isIncome ? `- Rp ${Number(trx.amount).toLocaleString('id-ID')}` : '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        {isIncome && (
-                          <button
-                            onClick={() => setSelectedReceipt(trx)}
-                            className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors cursor-pointer"
-                            title="Cetak Kuitansi"
-                          >
-                            <Printer className="w-3.5 h-3.5 mr-1" />
-                            Kuitansi
-                          </button>
-                        )}
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-center">
+                        <button
+                          onClick={() => setSelectedTrx(trx)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 active:scale-95 rounded-lg transition-all cursor-pointer shadow-2xs"
+                          title="Lihat Rincian Transaksi"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Lihat Detail
+                        </button>
                       </td>
                     </tr>
                   )
@@ -254,135 +291,228 @@ export default function Transactions() {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen p-4">
             <div
-              className="fixed inset-0 transition-opacity"
-              aria-hidden="true"
+              className="fixed inset-0 transition-opacity bg-black/60"
               onClick={() => !isSubmitting && setIsModalOpen(false)}
-            >
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
-              &#8203;
-            </span>
-            <div className="relative z-10 w-full max-w-lg bg-white rounded-lg text-left overflow-hidden shadow-xl">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="flex justify-between items-center mb-5">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">Catat Transaksi</h3>
-                  <button
-                    onClick={() => !isSubmitting && setIsModalOpen(false)}
-                    className="text-gray-400 hover:text-gray-500 cursor-pointer"
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
+            />
+            <div className="relative z-10 w-full max-w-lg bg-white rounded-xl text-left overflow-hidden shadow-2xl p-6">
+              <div className="flex justify-between items-center mb-5 border-b border-gray-100 pb-3">
+                <h3 className="text-base font-bold text-gray-900">Catat Transaksi Kas Baru</h3>
+                <button
+                  onClick={() => !isSubmitting && setIsModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Tanggal Transaksi</label>
+                  <input
+                    type="date"
+                    required
+                    value={form.transaction_date}
+                    onChange={(e) => setForm({ ...form, transaction_date: e.target.value })}
+                    className="block w-full border border-gray-300 rounded-lg shadow-xs py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs"
+                  />
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Tanggal Transaksi</label>
-                    <input
-                      type="date"
-                      required
-                      value={form.transaction_date}
-                      onChange={(e) => setForm({ ...form, transaction_date: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Jenis</label>
-                      <select
-                        value={form.type}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            type: e.target.value,
-                            category: e.target.value === 'income' ? 'Sewa Bulanan' : 'Listrik/Air',
-                          })
-                        }
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      >
-                        <option value="income">Pemasukan</option>
-                        <option value="expense">Pengeluaran</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Kategori</label>
-                      <select
-                        value={form.category}
-                        onChange={(e) => setForm({ ...form, category: e.target.value })}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      >
-                        {form.type === 'income' ? (
-                          <>
-                            <option value="Sewa Bulanan">Sewa Bulanan</option>
-                            <option value="Deposit">Deposit</option>
-                            <option value="Lainnya">Lainnya</option>
-                          </>
-                        ) : (
-                          <>
-                            <option value="Listrik/Air">Listrik/Air</option>
-                            <option value="Perbaikan">Perbaikan</option>
-                            <option value="Kebersihan">Kebersihan</option>
-                            <option value="Lainnya">Lainnya</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Nominal (Rp)</label>
-                    <input
-                      type="number"
-                      required
-                      value={form.amount}
-                      onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Contoh: 1500000"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Keterangan Tambahan</label>
-                    <textarea
-                      rows={3}
-                      value={form.description}
-                      onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Contoh: Bayar sewa Kamar 1 bulan Agustus"
-                    ></textarea>
-                  </div>
-
-                  <div className="mt-5 sm:mt-6 sm:flex sm:flex-row-reverse pt-4 border-t border-gray-200">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 cursor-pointer"
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Jenis Arus Kas</label>
+                    <select
+                      value={form.type}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          type: e.target.value,
+                          category: e.target.value === 'income' ? 'Sewa Bulanan' : 'Listrik/Air',
+                        })
+                      }
+                      className="block w-full border border-gray-300 rounded-lg shadow-xs py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs"
                     >
-                      {isSubmitting ? 'Menyimpan...' : 'Simpan'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsModalOpen(false)}
-                      disabled={isSubmitting}
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm cursor-pointer"
-                    >
-                      Batal
-                    </button>
+                      <option value="income">Pemasukan (Income)</option>
+                      <option value="expense">Pengeluaran (Expense)</option>
+                    </select>
                   </div>
-                </form>
-              </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Kategori</label>
+                    <select
+                      value={form.category}
+                      onChange={(e) => setForm({ ...form, category: e.target.value })}
+                      className="block w-full border border-gray-300 rounded-lg shadow-xs py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs"
+                    >
+                      {form.type === 'income' ? (
+                        <>
+                          <option value="Sewa Bulanan">Sewa Bulanan</option>
+                          <option value="Sewa Kamar">Sewa Kamar</option>
+                          <option value="Deposit">Deposit</option>
+                          <option value="Lainnya">Lainnya</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="Listrik/Air">Listrik/Air</option>
+                          <option value="Perbaikan">Perbaikan</option>
+                          <option value="Kebersihan">Kebersihan</option>
+                          <option value="Lainnya">Lainnya</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Nominal (Rp)</label>
+                  <input
+                    type="number"
+                    required
+                    value={form.amount}
+                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    className="block w-full border border-gray-300 rounded-lg shadow-xs py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs font-bold text-gray-900"
+                    placeholder="Contoh: 1500000"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Keterangan Tambahan</label>
+                  <textarea
+                    rows={2}
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    className="block w-full border border-gray-300 rounded-lg shadow-xs py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:outline-none text-xs"
+                    placeholder="Contoh: Biaya token listrik pompa air"
+                  ></textarea>
+                </div>
+
+                <div className="pt-3 border-t border-gray-100 flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Cetak Kuitansi */}
-      <ReceiptModal
-        isOpen={!!selectedReceipt}
-        onClose={() => setSelectedReceipt(null)}
-        transaction={selectedReceipt}
-      />
+      {/* Modal Lihat Detail Transaksi */}
+      {selectedTrx && createPortal(
+        <>
+          <div
+            className="fixed inset-0 bg-black/70"
+            style={{ zIndex: 9998 }}
+            onClick={() => setSelectedTrx(null)}
+          />
+          <div
+            className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
+            style={{ zIndex: 9999 }}
+          >
+            <div className="relative w-full max-w-md bg-white rounded-2xl overflow-hidden shadow-2xl p-6 pointer-events-auto">
+              <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-base font-bold text-gray-900">Detail Transaksi Kas</h3>
+                </div>
+                <button
+                  onClick={() => setSelectedTrx(null)}
+                  className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {(() => {
+                const isIncome = selectedTrx.type === 'income' || selectedTrx.type === 'pemasukan'
+                const trxCode = getTrxCode(selectedTrx)
+                const cleanDesc = (selectedTrx.description || '-').replace(/\s*\(TRX-[A-Z0-9]+\)/i, '')
+
+                return (
+                  <div className="space-y-4 text-xs">
+                    {/* Header ID Card */}
+                    <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 flex justify-between items-center">
+                      <div>
+                        <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Transaction ID</p>
+                        <p className="font-mono font-bold text-sm text-blue-700 mt-0.5">{trxCode}</p>
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                          isIncome ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {isIncome ? <ArrowDownLeft className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
+                        {isIncome ? 'PEMASUKAN' : 'PENGELUARAN'}
+                      </span>
+                    </div>
+
+                    {/* Table Details */}
+                    <div className="divide-y divide-gray-100">
+                      <div className="flex justify-between py-2">
+                        <span className="text-gray-500">Tanggal Transaksi</span>
+                        <span className="font-bold text-gray-900">
+                          {new Date(selectedTrx.transaction_date).toLocaleDateString('id-ID', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-2">
+                        <span className="text-gray-500">Kategori</span>
+                        <span className="font-bold text-gray-900">{selectedTrx.category}</span>
+                      </div>
+
+                      <div className="flex justify-between py-2">
+                        <span className="text-gray-500">Nominal</span>
+                        <span className={`font-black text-sm ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {isIncome ? '+ ' : '- '}Rp {Number(selectedTrx.amount).toLocaleString('id-ID')}
+                        </span>
+                      </div>
+
+                      <div className="py-2">
+                        <span className="text-gray-500 block mb-1">Keterangan / Uraian</span>
+                        <p className="font-medium text-gray-800 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                          {cleanDesc}
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-500">Status Pencatatan</span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Tercatat di Buku Kas
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-100 flex justify-end">
+                      <button
+                        onClick={() => setSelectedTrx(null)}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-semibold cursor-pointer"
+                      >
+                        Tutup
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
 
       {/* Modal Rekap Laporan Keuangan */}
       <FinancialReportModal
@@ -393,4 +523,5 @@ export default function Transactions() {
     </div>
   )
 }
+
 
