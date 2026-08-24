@@ -1,6 +1,7 @@
 import React, { useRef } from 'react'
 import { X, Printer, Download, Calendar, DollarSign, ArrowUpRight, ArrowDownRight, FileText } from 'lucide-react'
 import { formatIDR, exportTransactionsCSV } from '../lib/exportUtils'
+import logoImg from '../logo.png'
 
 type FinancialReportModalProps = {
   isOpen: boolean
@@ -141,9 +142,14 @@ export default function FinancialReportModal({
         <div ref={printAreaRef} className="p-6 sm:p-8 flex-1 overflow-y-auto print:p-0 print:overflow-visible">
           {/* Official Letterhead in Print */}
           <div className="border-b-2 border-gray-800 pb-4 mb-6 text-center sm:text-left sm:flex sm:justify-between sm:items-end">
-            <div>
-              <h1 className="text-2xl font-black text-gray-900 tracking-tight">MANAJEMEN KONTRAKAN</h1>
-              <p className="text-xs text-gray-600 font-medium">Laporan Rekapitulasi Arus Kas & Keuangan</p>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-white border border-gray-100 p-1 flex items-center justify-center overflow-hidden">
+                <img src={logoImg} alt="Al-Arief Logo" className="w-full h-full object-contain rounded-lg" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black text-gray-900 tracking-tight">AL-ARIEF</h1>
+                <p className="text-xs text-gray-600 font-medium">Rental Management • Laporan Arus Kas & Keuangan</p>
+              </div>
             </div>
             <div className="mt-3 sm:mt-0 text-right">
               <p className="text-xs text-gray-500 font-medium">

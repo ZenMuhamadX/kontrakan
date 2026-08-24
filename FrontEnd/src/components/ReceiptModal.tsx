@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Printer, X } from 'lucide-react'
+import logoImg from '../logo.png'
 
 interface ReceiptProps {
   isOpen: boolean
@@ -58,8 +59,11 @@ export default function ReceiptModal({ isOpen, onClose, transaction }: ReceiptPr
           <div className="p-8 print:p-8 bg-white text-gray-800 font-sans" id="printable-receipt">
             {/* Business Header */}
             <div className="border-b-2 border-dashed border-gray-300 pb-4 mb-6 text-center">
-              <h2 className="text-2xl font-bold tracking-tight text-gray-900 uppercase">KUITANSI PEMBAYARAN</h2>
-              <p className="text-sm text-gray-500 font-medium mt-1">Sistem Manajemen Kontrakan</p>
+              <div className="w-12 h-12 rounded-xl bg-white border border-gray-100 p-1 shadow-xs mx-auto mb-2 flex items-center justify-center overflow-hidden">
+                <img src={logoImg} alt="Al-Arief Logo" className="w-full h-full object-contain rounded-lg" />
+              </div>
+              <h2 className="text-xl font-black tracking-tight text-gray-900 uppercase">KUITANSI PEMBAYARAN</h2>
+              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mt-0.5">Al-Arief • Rental Management</p>
               <div className="flex justify-between items-center text-xs text-gray-400 mt-4">
                 <span>No: <strong className="text-gray-700">{receiptNo}</strong></span>
                 <span>Tanggal: <strong className="text-gray-700">{dateFormatted}</strong></span>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
 import { KeyRound, Mail } from 'lucide-react'
+import logoImg from '../logo.png'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -30,8 +31,11 @@ export default function Login() {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Manajemen Kontrakan</h1>
-          <p className="text-sm text-gray-500 mt-2">Masuk ke panel admin</p>
+          <div className="w-20 h-20 rounded-2xl bg-white border border-gray-100 p-2 shadow-md mx-auto mb-3 flex items-center justify-center overflow-hidden">
+            <img src={logoImg} alt="Al-Arief Logo" className="w-full h-full object-contain rounded-xl" />
+          </div>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Al-Arief</h1>
+          <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mt-0.5">Rental Management</p>
         </div>
 
         {error && (

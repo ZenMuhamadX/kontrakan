@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="ariefGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="50%" stop-color="#1D4ED8" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="roofGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#10B981" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded Modern Background -->
+  <rect width="64" height="64" rx="16" fill="url(#ariefGrad)" filter="url(#shadow)"/>
+
+  <!-- Stylized Elegant 'A' & Roof Geometry -->
+  <!-- Roof Shape -->
+  <path d="M32 10L14 26H22L32 17L42 26H50L32 10Z" fill="url(#roofGrad)" />
+  
+  <!-- Outer Pillar A Structure -->
+  <path d="M32 15L17 48H25L32 32L39 48H47L32 15Z" fill="#FFFFFF" fill-opacity="0.95" />
+  
+  <!-- Inner Crossbar with Door / Key Accent -->
+  <path d="M26 38H38V42H26V38Z" fill="#10B981" rx="1" />
+  
+  <!-- Modern Window Accent -->
+  <circle cx="32" cy="27" r="2.5" fill="#2563EB" />
+</svg>

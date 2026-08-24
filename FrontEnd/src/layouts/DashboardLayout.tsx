@@ -1,6 +1,8 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Home, BedDouble, Users, Receipt, LogOut } from 'lucide-react'
 import { useAuth } from '../lib/AuthContext'
+import PageTransition from '../components/PageTransition'
+import logoImg from '../logo.png'
 
 export function DashboardLayout() {
   const location = useLocation()
@@ -22,21 +24,31 @@ export function DashboardLayout() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       {/* Top Bar */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-2xs backdrop-blur-md bg-white/95">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center space-x-3">
-              <span className="text-xl font-bold text-gray-900 tracking-tight">Manajemen Kontrakan</span>
+              <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 p-1 shadow-xs flex items-center justify-center overflow-hidden">
+                <img src={logoImg} alt="Al-Arief Logo" className="w-full h-full object-contain rounded-lg" />
+              </div>
+              <div>
+                <span className="text-lg font-black text-gray-900 tracking-tight block leading-none">
+                  Al-Arief
+                </span>
+                <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block mt-0.5">
+                  Rental Management
+                </span>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               {user?.email && (
-                <span className="text-xs text-gray-500 hidden sm:inline-block">
+                <span className="text-xs text-gray-500 hidden sm:inline-block font-medium">
                   {user.email}
                 </span>
               )}
               <button
                 onClick={handleLogout}
-                className="text-gray-500 hover:text-red-600 p-2 rounded-md flex items-center text-sm font-medium transition-colors cursor-pointer"
+                className="text-gray-500 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg flex items-center text-sm font-medium transition-all duration-200 active:scale-95 cursor-pointer"
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 Keluar
@@ -56,10 +68,10 @@ export function DashboardLayout() {
                     key={item.name}
                     to={item.path}
                     className={`
-                      flex items-center py-3 text-sm font-medium border-b-2 
+                      flex items-center py-3 text-sm font-semibold border-b-2 transition-all duration-200
                       ${isActive 
-                        ? 'border-blue-500 text-blue-600' 
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? 'border-blue-600 text-blue-600' 
+                        : 'border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300'
                       }
                     `}
                   >
@@ -73,10 +85,13 @@ export function DashboardLayout() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content with Smooth Page Transitions */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Outlet />
+        <PageTransition>
+          <Outlet />
+        </PageTransition>
       </main>
     </div>
   )
 }
+

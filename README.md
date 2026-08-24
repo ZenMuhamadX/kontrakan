@@ -34,24 +34,35 @@ docker compose up -d --build
   docker compose down
   ```
 
+## ⚡ Menjalankan Secara Lokal / Development (Tanpa Docker & Super Cepat)
+
+Tidak perlu rebuild Docker setiap kali edit kode! Backend & Frontend sudah dilengkapi **Hot Module Replacement (HMR)** dan **Auto Reverse-Proxy**:
+
+### Cara 1: Sekali Klik (Windows Batch File)
+Cukup double-click file **`dev.bat`** di folder root `KONTRAKAN/`.
+File ini akan otomatis membuka 2 window terminal:
+- **Backend API**: `http://localhost:3000` (Auto reload saat edit file backend)
+- **Frontend Web**: `http://localhost:4001` (Instant Hot-Reload saat edit file frontend / styling)
+
 ---
 
-## 💻 Menjalankan Secara Lokal (Development Mode)
-
-Jika ingin menjalankan tanpa Docker untuk development:
-
-### 1. BackEnd
+### Cara 2: Lewat 1 Perintah Terminal (Root Folder)
 ```bash
-cd BackEnd
-bun install
-bun run dev
+bun run dev:all
 ```
-API berjalan di: `http://localhost:3000`
 
-### 2. FrontEnd
-```bash
-cd FrontEnd
-bun install
-bun run dev
-```
-Web berjalan di: `http://localhost:4001`
+---
+
+### Cara 3: Terminal Terpisah
+1. **Backend**:
+   ```bash
+   cd Backend
+   bun run dev
+   ```
+2. **Frontend**:
+   ```bash
+   cd Frontend
+   bun run dev
+   ```
+   *Frontend dev server otomatis mem-forward request `/api/*` langsung ke `http://localhost:3000` tanpa perlu konfigurasi CORS tambahan.*
+
