@@ -1,4 +1,20 @@
-const API_BASE_URL = '/api'
+// API URL configuration:
+// 1. Runtime window.__ENV__.API_BASE_URL (jika disuntik script di index.html)
+// 2. Build time process.env.API_BASE_URL / process.env.VITE_API_URL
+// 3. Fallback '/api' (rekomendasi untuk reverse proxy Nginx di aaPanel)
+declare global {
+  interface Window {
+    __ENV__?: {
+      API_BASE_URL?: string
+    }
+  }
+}
+
+const API_BASE_URL = 
+  (typeof window !== 'undefined' && window.__ENV__?.API_BASE_URL) ||
+  process.env.API_BASE_URL ||
+  process.env.VITE_API_URL ||
+  '/api'
 
 // Helper untuk token auth
 export const getToken = (): string | null => {
