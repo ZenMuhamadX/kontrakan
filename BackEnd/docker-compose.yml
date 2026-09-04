@@ -6,10 +6,10 @@ services:
     container_name: kontrakan-backend
     restart: always
     ports:
-      # Expose ke port 3000 host (127.0.0.1 agar aman hanya bisa diakses Nginx internal)
-      - "127.0.0.1:3000:3000"
+      # Expose ke 0.0.0.0:3000 agar bisa diakses lewat IP lokal / jaringan LAN
+      - "3000:3000"
     env_file:
-      - ./Backend/.env
+      - ./.env
     environment:
       - NODE_ENV=production
       - PORT=3000
