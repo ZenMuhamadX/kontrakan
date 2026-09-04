@@ -1,0 +1,15 @@
+services:
+  backend:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: kontrakan-backend
+    restart: always
+    ports:
+      # Expose ke 0.0.0.0:3000 agar bisa diakses lewat IP lokal / jaringan LAN
+      - "3000:3000"
+    env_file:
+      - ./.env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000

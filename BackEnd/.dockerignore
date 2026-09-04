@@ -1,0 +1,7 @@
+node_modules
+.env
+dist
+.git
+.gitignore
+*.log
+test-api.ts

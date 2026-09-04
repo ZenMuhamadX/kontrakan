@@ -1,0 +1,3 @@
+benerken .env
+tambah fitur fitur anu mantap jang kontrakan
+pisahkan front end backend
